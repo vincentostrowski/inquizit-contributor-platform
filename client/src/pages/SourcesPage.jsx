@@ -11,7 +11,6 @@ const Sources = () => {
   const { currentBook } = useBook();
   const { sectionId, selectSection } = useUrlState();
   const [selectedSection, setSelectedSection] = useState(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const refreshSectionsRef = useRef(null);
   const { sections, updateSection: updateSectionFromHook, createSection, deleteSection } = useSections(currentBook);
 
@@ -27,19 +26,24 @@ const Sources = () => {
         
         if (data) {
           setSelectedSection(data);
-          setDrawerOpen(true);
         } else {
           setSelectedSection(null);
-          setDrawerOpen(false);
         }
       } else {
         setSelectedSection(null);
-        setDrawerOpen(false);
       }
     };
 
     fetchSection();
   }, [sectionId]);
+
+  // Auto-select first section when no section is in URL and sections are loaded
+  useEffect(() => {
+    if (!sectionId && sections.length > 0) {
+      const firstSection = sections[0];
+      handleSectionSelect(firstSection);
+    }
+  }, [sections]);
 
   const handleSectionSelect = (section) => {
     selectSection(section.id);
@@ -60,7 +64,6 @@ const Sources = () => {
     const success = await deleteSection(section.id);
     if (success && selectedSection?.id === section.id) {
       setSelectedSection(null);
-      setDrawerOpen(false);
     }
   };
 
@@ -120,32 +123,34 @@ const Sources = () => {
 
   return (
     <div className="flex h-full">
-            {/* Section Browser - Takes remaining space */}
-            <div className={`
-              ${drawerOpen ? 'w-1/2' : 'w-full'}
-            `}>
-              <SectionBrowser 
-                onSectionSelect={handleSectionSelect}
-                selectedSection={selectedSection}
-                book={currentBook}
-                sections={sections}
-                onSectionsRefresh={handleSectionsRefresh}
-                onCreateSection={handleCreateSection}
-                onDeleteSection={handleDeleteSection}
-              />
-            </div>
+      {/* Section Browser - Takes half the space */}
+      <div className="w-1/2">
+        <SectionBrowser 
+          onSectionSelect={handleSectionSelect}
+          selectedSection={selectedSection}
+          book={currentBook}
+          sections={sections}
+          onSectionsRefresh={handleSectionsRefresh}
+          onCreateSection={handleCreateSection}
+          onDeleteSection={handleDeleteSection}
+        />
+      </div>
 
-            {/* Content Drawer - Slides in from right */}
-            {drawerOpen && selectedSection && (
-              <div className="w-1/2 border-l border-gray-200">
-                <ContentDrawer
-                  selectedSection={selectedSection}
-                  onUpdateSection={handleUpdateSection}
-                  sections={sections}
-                />
-              </div>
-            )}
+      {/* Content Area - Takes half the space */}
+      <div className="w-1/2 border-l border-gray-200">
+        {selectedSection ? (
+          <ContentDrawer
+            selectedSection={selectedSection}
+            onUpdateSection={handleUpdateSection}
+            sections={sections}
+          />
+        ) : (
+          <div className="h-full bg-white flex items-center justify-center">
+            <div className="text-gray-500">Select a section to view its content</div>
           </div>
+        )}
+      </div>
+    </div>
   );
 };
 

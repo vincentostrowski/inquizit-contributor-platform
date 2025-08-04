@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import ReadOnlySectionBrowser from '../components/cards_page/ReadOnlySectionBrowser';  
 import CardDrawer from '../components/cards_page/CardDrawer';
 import { useBook } from '../context/BookContext';
 import { useUrlState } from '../hooks/useUrlState';
+import { useSections } from '../hooks/useSections';
 
 const CardsPage = () => {
   const { currentBook } = useBook();
   const { sectionId, selectSection } = useUrlState();
   const [selectedSection, setSelectedSection] = useState(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const refreshSectionsRef = useRef(null);
+  const { sections } = useSections(currentBook);
 
   // Fetch selected section data when sectionId changes
   useEffect(() => {
@@ -24,26 +24,27 @@ const CardsPage = () => {
         
         if (data) {
           setSelectedSection(data);
-          setDrawerOpen(true);
         } else {
           setSelectedSection(null);
-          setDrawerOpen(false);
         }
       } else {
         setSelectedSection(null);
-        setDrawerOpen(false);
       }
     };
 
     fetchSection();
   }, [sectionId]);
 
+  // Auto-select first section when no section is in URL and sections are loaded
+  useEffect(() => {
+    if (!sectionId && sections.length > 0) {
+      const firstSection = sections[0];
+      handleSectionSelect(firstSection);
+    }
+  }, [sections]);
+
   const handleSectionSelect = (section) => {
     selectSection(section.id);
-  };
-
-  const handleSectionsRefresh = (refreshSections) => {
-    refreshSectionsRef.current = refreshSections;
   };
 
   const handleUpdateSection = async (sectionId, updates) => {
@@ -62,11 +63,6 @@ const CardsPage = () => {
 
       // Update the selected section state
       setSelectedSection(updatedSection);
-
-      // Refresh the ReadOnlySectionBrowser to reflect the changes
-      if (refreshSectionsRef.current) {
-        await refreshSectionsRef.current();
-      }
     } catch (error) {
       console.error('Error updating section:', error);
     }
@@ -74,28 +70,30 @@ const CardsPage = () => {
 
   return (
     <div className="flex h-full">
-      {/* Section Browser - Takes remaining space */}
-      <div className={`
-        ${drawerOpen ? 'w-1/2' : 'w-full'}
-      `}>
+      {/* Section Browser - Takes half the space */}
+      <div className="w-1/2">
         <ReadOnlySectionBrowser 
           onSectionSelect={handleSectionSelect}
           selectedSection={selectedSection}
           book={currentBook}
-          onSectionsRefresh={handleSectionsRefresh}
+          sections={sections}
         />
       </div>
 
-      {/* Card Drawer - Slides in from right */}
-      {drawerOpen && selectedSection && (
-        <div className="w-1/2 border-l border-gray-200">
+      {/* Card Area - Takes half the space */}
+      <div className="w-1/2 border-l border-gray-200">
+        {selectedSection ? (
           <CardDrawer
             selectedSection={selectedSection}
             onUpdateSection={handleUpdateSection}
             book={currentBook}
           />
-        </div>
-      )}
+        ) : (
+          <div className="h-full bg-white flex items-center justify-center">
+            <div className="text-gray-500">Select a section to view its cards</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

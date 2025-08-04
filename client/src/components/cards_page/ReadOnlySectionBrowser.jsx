@@ -1,29 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import ReadOnlySection from './ReadOnlySection';
-import { useSections } from '../../hooks/useSections';
 
-const ReadOnlySectionBrowser = ({ onSectionSelect, selectedSection, book }) => {
-  const { 
-    sections, 
-    loading, 
-    error
-  } = useSections(book);
+const ReadOnlySectionBrowser = ({ onSectionSelect, selectedSection, book, sections }) => {
 
-  if (loading) {
-    return (
-      <div className="h-full bg-white flex items-center justify-center">
-        <div className="text-gray-500">Loading sections...</div>
-      </div>
-    );
-  }
 
-  if (error) {
-    return (
-      <div className="h-full bg-white flex items-center justify-center">
-        <div className="text-red-500">Error: {error}</div>
-      </div>
-    );
-  }
 
   return (
     <div className="h-full bg-white flex flex-col">

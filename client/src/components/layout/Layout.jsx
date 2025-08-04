@@ -4,7 +4,7 @@ import MainContent from './MainContent';
 import { useBook } from '../../context/BookContext';
 
 const Layout = () => {
-  const [isBookSidebarOpen, setIsBookSidebarOpen] = useState(true);
+  const [isBookSidebarOpen, setIsBookSidebarOpen] = useState(false);
   const { currentBook } = useBook();
   const sidebarRef = useRef(null);
 

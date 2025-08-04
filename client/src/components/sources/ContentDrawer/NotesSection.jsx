@@ -44,6 +44,16 @@ const NotesSection = ({ section, selectedSnippet, onSnippetSelect }) => {
     fetchSnippets();
   }, [section?.id]); // Only depend on section ID to prevent double snippet creation
 
+  // Update local snippets state when selectedSnippet changes (e.g., when TextEditor saves content)
+  useEffect(() => {
+    if (selectedSnippet && snippets.length > 0) {
+      const updatedSnippets = snippets.map(snippet => 
+        snippet.id === selectedSnippet.id ? selectedSnippet : snippet
+      );
+      setSnippets(updatedSnippets);
+    }
+  }, [selectedSnippet]);
+
   // Auto-select first snippet when selectedSnippet is null but snippets exist
   useEffect(() => {
     if (snippets.length > 0 && !selectedSnippet && section) {
