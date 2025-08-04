@@ -10,7 +10,7 @@ const ContentDrawer = ({ selectedSection, onUpdateSection, sections }) => {
         onUpdateSection={onUpdateSection}
         sections={sections}
       />
-      <ContentDrawerBody selectedSection={selectedSection} />
+      <ContentDrawerBody selectedSection={selectedSection} sections={sections} />
     </div>
   );
 };

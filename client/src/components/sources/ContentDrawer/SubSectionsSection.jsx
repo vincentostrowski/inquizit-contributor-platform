@@ -2,26 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../services/supabaseClient';
 import { useUrlState } from '../../../hooks/useUrlState';
 
-const SubSectionsSection = ({ section }) => {
-  const [children, setChildren] = useState([]);
+const SubSectionsSection = ({ section, sections }) => {
   const { selectSection } = useUrlState();
 
-  // Fetch children for the selected section
-  useEffect(() => {
-    const fetchChildren = async () => {
-      if (section) {
-        const { data, error } = await supabase
-          .from('source_sections')
-          .select('*')
-          .eq('parent_id', section.id);
-        
-        if (data) {
-          setChildren(data);
+  // Find children from the hierarchical sections data
+  const findChildren = (sections, targetId) => {
+    for (const s of sections) {
+      if (s.id === targetId) {
+        return s.children || [];
+      }
+      if (s.children && s.children.length > 0) {
+        const found = findChildren(s.children, targetId);
+        if (found.length > 0) {
+          return found;
         }
       }
-    };
-    fetchChildren();
-  }, [section]);
+    }
+    return [];
+  };
+
+  const children = findChildren(sections, section?.id) || [];
 
   const handleSubSectionSelect = (section) => {
     selectSection(section.id);

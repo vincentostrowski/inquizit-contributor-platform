@@ -67,7 +67,7 @@ const TextEditor = ({ section, selectedSnippet, onSnippetSelect }) => {
   useEffect(() => {
     if (hasChanges && selectedSnippet) {
       setSaveStatus('unsaved');
-      
+      console.log('Auto-saving...');
       const timer = setTimeout(() => {
         performSave();
       }, 2000);
@@ -79,7 +79,7 @@ const TextEditor = ({ section, selectedSnippet, onSnippetSelect }) => {
   const handleContentChange = (e) => {
     // Don't allow changes if section is marked as done
     if (isReadOnly) return;
-    
+
     const newContent = e.target.value;
     if (newContent.length <= maxCharacters) {
       setContent(newContent);
@@ -132,7 +132,7 @@ const TextEditor = ({ section, selectedSnippet, onSnippetSelect }) => {
       </div>
 
       {/* Character Counter and Save */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center h-8">
         <span className={`text-xs ${
           characterCount > maxCharacters * 0.9 
             ? 'text-red-600' 
@@ -140,15 +140,17 @@ const TextEditor = ({ section, selectedSnippet, onSnippetSelect }) => {
         }`}>
           {characterCount} / {maxCharacters}
         </span>
-        {!isReadOnly && (
-          <button
-            onClick={handleManualSave}
-            disabled={saveStatus === 'saving' || !hasChanges}
-            className={saveButtonProps.className}
-          >
-            {saveButtonProps.text}
-          </button>
-        )}
+        <div className="h-6">
+          {!isReadOnly && content.trim() && (
+            <button
+              onClick={handleManualSave}
+              disabled={saveStatus === 'saving' || !hasChanges}
+              className={saveButtonProps.className}
+            >
+              {saveButtonProps.text}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
