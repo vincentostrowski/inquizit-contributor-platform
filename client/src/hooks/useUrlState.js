@@ -14,11 +14,13 @@ export const useUrlState = () => {
   // Update book selection
   const selectBook = useCallback((bookId) => {
     if (bookId) {
-      navigate(`/sources?book=${bookId}`);
+      // Preserve current page (sources or cards) when switching books
+      const newUrl = `${location.pathname}?book=${bookId}`;
+      navigate(newUrl);
     } else {
       navigate('/sources');
     }
-  }, [navigate]);
+  }, [navigate, location.pathname]);
 
   // Update section selection
   const selectSection = useCallback((sectionId) => {

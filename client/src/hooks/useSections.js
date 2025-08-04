@@ -14,7 +14,7 @@ export const useSections = (book) => {
     } else {
       setSections([]);
     }
-  }, [book]);
+  }, [book?.id]); // Use book.id instead of book object
 
   const fetchSections = async () => {
     if (!book) return;
