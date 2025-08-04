@@ -4,16 +4,13 @@ import CreateSectionButton from './CreateSectionButton';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import { useSections } from '../../hooks/useSections';
 
-const SectionBrowser = ({ onSectionSelect, selectedSection, book, onSectionsRefresh }) => {
+const SectionBrowser = ({ onSectionSelect, selectedSection, book, sections, onSectionsRefresh, onCreateSection, onDeleteSection }) => {
   const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, section: null });
   
   const { 
-    sections, 
     loading, 
     error, 
-    createSection,
     updateSection,
-    deleteSection,
     refreshSections
   } = useSections(book);
 
@@ -25,14 +22,14 @@ const SectionBrowser = ({ onSectionSelect, selectedSection, book, onSectionsRefr
   }, [onSectionsRefresh, refreshSections]);
 
   const handleCreateSection = async () => {
-    const newSection = await createSection();
+    const newSection = await onCreateSection();
     if (newSection) {
       onSectionSelect(newSection);
     }
   };
 
   const handleCreateSubsection = async (parentSection) => {
-    const newSubsection = await createSection(parentSection);
+    const newSubsection = await onCreateSection(parentSection);
     if (newSubsection) {
       onSectionSelect(newSubsection);
     }
@@ -51,10 +48,7 @@ const SectionBrowser = ({ onSectionSelect, selectedSection, book, onSectionsRefr
 
   const confirmDelete = async () => {
     if (deleteDialog.section) {
-      const success = await deleteSection(deleteDialog.section.id);
-      if (success && selectedSection?.id === deleteDialog.section.id) {
-        onSectionSelect(null);
-      }
+      await onDeleteSection(deleteDialog.section);
     }
     setDeleteDialog({ isOpen: false, section: null });
   };

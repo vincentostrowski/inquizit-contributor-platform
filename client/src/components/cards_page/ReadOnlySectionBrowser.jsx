@@ -2,12 +2,20 @@ import React, { useState, useEffect } from 'react';
 import ReadOnlySection from './ReadOnlySection';
 import { useSections } from '../../hooks/useSections';
 
-const ReadOnlySectionBrowser = ({ onSectionSelect, selectedSection, book }) => {
+const ReadOnlySectionBrowser = ({ onSectionSelect, selectedSection, book, onSectionsRefresh }) => {
   const { 
     sections, 
     loading, 
-    error
+    error,
+    refreshSections
   } = useSections(book);
+
+  // Expose refresh function to parent
+  useEffect(() => {
+    if (onSectionsRefresh) {
+      onSectionsRefresh(refreshSections);
+    }
+  }, [onSectionsRefresh, refreshSections]);
 
   if (loading) {
     return (

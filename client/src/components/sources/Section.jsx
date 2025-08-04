@@ -124,7 +124,7 @@ const Section = ({ section, selectedSectionId, onSelect, onCreateSubsection, onU
           ) : (
             <div className="flex items-center space-x-2 flex-1 min-w-0">
               <span className="font-medium text-gray-800 truncate flex-1">{section.title}</span>
-              {section.sources_done && section.completion.percentage == 100 && (
+              {section.sources_done && (
                 <div className="flex items-center space-x-1 bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium flex-shrink-0">
                   <span>Sources</span>
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -132,8 +132,6 @@ const Section = ({ section, selectedSectionId, onSelect, onCreateSubsection, onU
                   </svg>
                 </div>
               )}
-              
-            
             </div>
           )}
         </div>

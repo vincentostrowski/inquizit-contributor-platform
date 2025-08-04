@@ -8,7 +8,7 @@ import { findNodeById } from '../../utils/treeUtils';
 const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(false);
-  const { sections } = useSections(book);
+  const { sections, refreshSections } = useSections(book);
 
   // Find the selected section from the processed sections data
   const sectionWithCompletion = selectedSection && sections.length > 0 
@@ -74,6 +74,7 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
 
     fetchCards();
   }, [sectionWithCompletion]);
+  
 
   const handleCreateCard = () => {
     console.log('Create card clicked for section:', sectionWithCompletion?.id);
@@ -90,13 +91,17 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
     // TODO: Implement action handling
   };
 
-  const handleConfirm = async () => {
+  const handleToggleCardSetDone = async () => {
     if (!sectionWithCompletion || !onUpdateSection) return;
     
+    const newCardSetDoneValue = !sectionWithCompletion.card_set_done;
+    
     try {
-      await onUpdateSection(sectionWithCompletion.id, { card_set_done: true });
+      await onUpdateSection(sectionWithCompletion.id, { card_set_done: newCardSetDoneValue });
+      // Refresh sections data to update the UI
+      await refreshSections();
     } catch (error) {
-      console.error('Error confirming section:', error);
+      console.error('Error toggling card set done:', error);
     }
   };
 
@@ -111,7 +116,7 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
           <div className="flex items-center space-x-2">
             {isSectionReady && (
               <>
-                {cards.length === 0 && (
+                {cards.length === 0 && !loading && (
                   <button
                     onClick={() => {}}
                     className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center"
@@ -122,14 +127,19 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
                     </svg>
                   </button>
                 )}
-                {!sectionWithCompletion?.card_set_done && cards.length > 0 && (
+                {cards.length > 0 && (
                   <button
-                    onClick={handleConfirm}
-                    className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    onClick={handleToggleCardSetDone}
+                    className={`px-3 py-1 rounded text-sm transition-colors ${
+                      sectionWithCompletion?.card_set_done
+                        ? 'text-gray-500 hover:text-blue-700'
+                        : 'bg-green-600 text-white hover:bg-green-700'
+                    }`}
                   >
-                    Confirm
+                    {sectionWithCompletion?.card_set_done ? 'Edit' : 'Confirm'}
                   </button>
                 )}
+                
               </>
             )}
           </div>
@@ -164,7 +174,7 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
                 onCreateCard={handleCreateCard}
               />
             </div>
-            {cards.length > 0 && (
+            {cards.length > 0 && !loading && !sectionWithCompletion?.card_set_done && (
               <div className="border-t border-gray-200 flex-1 min-h-0">
                 <ActionsList onActionSelect={handleActionSelect} />
               </div>

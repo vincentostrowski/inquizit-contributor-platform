@@ -4,6 +4,8 @@ import SectionBrowser from '../components/sources/SectionBrowser';
 import ContentDrawer from '../components/sources/ContentDrawer';
 import { useBook } from '../context/BookContext';
 import { useUrlState } from '../hooks/useUrlState';
+import { useSections } from '../hooks/useSections';
+import { findNodeById } from '../utils/treeUtils';
 
 const Sources = () => {
   const { currentBook } = useBook();
@@ -11,6 +13,7 @@ const Sources = () => {
   const [selectedSection, setSelectedSection] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const refreshSectionsRef = useRef(null);
+  const { sections, updateSection: updateSectionFromHook, createSection, deleteSection } = useSections(currentBook);
 
   // Fetch selected section data when sectionId changes
   useEffect(() => {
@@ -46,30 +49,73 @@ const Sources = () => {
     refreshSectionsRef.current = refreshSections;
   };
 
+  const handleCreateSection = async (parentSection = null) => {
+    const newSection = await createSection(parentSection);
+    if (newSection) {
+      onSectionSelect(newSection);
+    }
+  };
+
+  const handleDeleteSection = async (section) => {
+    const success = await deleteSection(section.id);
+    if (success && selectedSection?.id === section.id) {
+      setSelectedSection(null);
+      setDrawerOpen(false);
+    }
+  };
+
   const handleUpdateSection = async (sectionId, updates) => {
     try {
-      const { data: updatedSection, error } = await supabase
-        .from('source_sections')
-        .update(updates)
-        .eq('id', sectionId)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error updating section:', error);
-        return;
+      // Use the useSections hook's updateSection function to ensure consistency
+      const updatedSection = await updateSectionFromHook(sectionId, updates);
+      
+      if (updatedSection) {
+        // Update the selected section state
+        setSelectedSection(updatedSection);
       }
 
-      // Update the selected section state
-      setSelectedSection(updatedSection);
-
-      // Refresh the SectionBrowser to reflect the changes
-      if (refreshSectionsRef.current) {
-        await refreshSectionsRef.current();
+      // If a section is being changed from done to not done, update ancestors
+      if (updates.sources_done === false) {
+        await updateAncestorsIfDone(sectionId);
       }
     } catch (error) {
       console.error('Error updating section:', error);
     }
+  };
+
+  const updateAncestorsIfDone = async (sectionId) => {
+    try {
+      // Find the section in the tree to get its ancestors
+      const section = findNodeById(sections, sectionId);
+      if (!section) return;
+
+      // Get all ancestor IDs (parent, grandparent, etc.)
+      const ancestorIds = getAncestorIds(sections, sectionId);
+      
+      // Update each ancestor that is currently done
+      for (const ancestorId of ancestorIds) {
+        const ancestor = findNodeById(sections, ancestorId);
+        if (ancestor && ancestor.sources_done) {
+          await updateSectionFromHook(ancestorId, { sources_done: false });
+        }
+      }
+    } catch (error) {
+      console.error('Error updating ancestors:', error);
+    }
+  };
+
+  const getAncestorIds = (tree, targetId, parentId = null, path = []) => {
+    for (const node of tree) {
+      if (node.id === targetId) {
+        return path;
+      }
+      
+      if (node.children && node.children.length > 0) {
+        const found = getAncestorIds(node.children, targetId, node.id, [...path, node.id]);
+        if (found) return found;
+      }
+    }
+    return null;
   };
 
   return (
@@ -82,7 +128,10 @@ const Sources = () => {
                 onSectionSelect={handleSectionSelect}
                 selectedSection={selectedSection}
                 book={currentBook}
+                sections={sections}
                 onSectionsRefresh={handleSectionsRefresh}
+                onCreateSection={handleCreateSection}
+                onDeleteSection={handleDeleteSection}
               />
             </div>
 
@@ -92,6 +141,7 @@ const Sources = () => {
                 <ContentDrawer
                   selectedSection={selectedSection}
                   onUpdateSection={handleUpdateSection}
+                  sections={sections}
                 />
               </div>
             )}

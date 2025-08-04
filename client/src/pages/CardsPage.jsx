@@ -46,6 +46,32 @@ const CardsPage = () => {
     refreshSectionsRef.current = refreshSections;
   };
 
+  const handleUpdateSection = async (sectionId, updates) => {
+    try {
+      const { data: updatedSection, error } = await supabase
+        .from('source_sections')
+        .update(updates)
+        .eq('id', sectionId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating section:', error);
+        return;
+      }
+
+      // Update the selected section state
+      setSelectedSection(updatedSection);
+
+      // Refresh the ReadOnlySectionBrowser to reflect the changes
+      if (refreshSectionsRef.current) {
+        await refreshSectionsRef.current();
+      }
+    } catch (error) {
+      console.error('Error updating section:', error);
+    }
+  };
+
   return (
     <div className="flex h-full">
       {/* Section Browser - Takes remaining space */}
@@ -56,6 +82,7 @@ const CardsPage = () => {
           onSectionSelect={handleSectionSelect}
           selectedSection={selectedSection}
           book={currentBook}
+          onSectionsRefresh={handleSectionsRefresh}
         />
       </div>
 
@@ -64,6 +91,7 @@ const CardsPage = () => {
         <div className="w-1/2 border-l border-gray-200">
           <CardDrawer
             selectedSection={selectedSection}
+            onUpdateSection={handleUpdateSection}
             book={currentBook}
           />
         </div>

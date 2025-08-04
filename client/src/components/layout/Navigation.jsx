@@ -19,7 +19,7 @@ const Navigation = ({ currentBook }) => {
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between pr-4 pl-8 py-3">
         {/* Book Title */}
         <div className="text-right">
           <h1 className="text-xl font-semibold text-gray-800">
