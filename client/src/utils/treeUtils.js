@@ -53,8 +53,8 @@ export const calculateSectionCompletion = (section) => {
     return {
       totalChildren: 0,
       completedChildren: 0,
-      percentage: section.done ? 100 : 0,
-      isCompleted: section.done || false
+      percentage: section.sources_done ? 100 : 0,
+      isCompleted: section.sources_done || false
     };
   }
 
@@ -64,7 +64,7 @@ export const calculateSectionCompletion = (section) => {
   const traverse = (nodes) => {
     nodes.forEach(node => {
       totalChildren++;
-      if (node.done) {
+      if (node.sources_done) {
         completedChildren++;
       }
       
@@ -77,7 +77,7 @@ export const calculateSectionCompletion = (section) => {
   traverse(section.children);
 
   const percentage = totalChildren > 0 ? Math.round((completedChildren / totalChildren) * 100) : 0;
-  const isCompleted = section.done || (totalChildren > 0 && completedChildren === totalChildren);
+  const isCompleted = section.sources_done || (totalChildren > 0 && completedChildren === totalChildren);
 
   return {
     totalChildren,

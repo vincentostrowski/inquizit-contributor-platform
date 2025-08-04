@@ -2,11 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../services/supabaseClient';
 
 const TextEditor = ({ section, selectedSnippet, onSnippetSelect }) => {
+  // Check if section is marked as done
+  const isReadOnly = section?.sources_done || false;
   const [content, setContent] = useState('');
   const [characterCount, setCharacterCount] = useState(0);
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saved', 'unsaved', 'saving'
   const [lastSavedContent, setLastSavedContent] = useState('');
-  const maxCharacters = 5000;
+  const maxCharacters = 10000;
 
   // Update content when selected snippet changes
   useEffect(() => {
@@ -75,6 +77,9 @@ const TextEditor = ({ section, selectedSnippet, onSnippetSelect }) => {
   }, [content, selectedSnippet, hasChanges, performSave]);
 
   const handleContentChange = (e) => {
+    // Don't allow changes if section is marked as done
+    if (isReadOnly) return;
+    
     const newContent = e.target.value;
     if (newContent.length <= maxCharacters) {
       setContent(newContent);
@@ -116,8 +121,13 @@ const TextEditor = ({ section, selectedSnippet, onSnippetSelect }) => {
         <textarea
           value={content}
           onChange={handleContentChange}
-          placeholder="Enter your content here. It will be used to generate the idea cards for this section."
-          className="w-full h-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+          readOnly={isReadOnly}
+          placeholder={isReadOnly ? "This section is marked as done. Content is read-only." : "Enter your content here. It will be used to generate the idea cards for this section."}
+          className={`w-full h-full p-3 border border-gray-300 rounded-lg resize-none text-sm ${
+            isReadOnly 
+              ? 'bg-gray-50 text-gray-600 cursor-default' 
+              : 'focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+          }`}
         />
       </div>
 
@@ -130,13 +140,15 @@ const TextEditor = ({ section, selectedSnippet, onSnippetSelect }) => {
         }`}>
           {characterCount} / {maxCharacters}
         </span>
-        <button
-          onClick={handleManualSave}
-          disabled={saveStatus === 'saving' || !hasChanges}
-          className={saveButtonProps.className}
-        >
-          {saveButtonProps.text}
-        </button>
+        {!isReadOnly && (
+          <button
+            onClick={handleManualSave}
+            disabled={saveStatus === 'saving' || !hasChanges}
+            className={saveButtonProps.className}
+          >
+            {saveButtonProps.text}
+          </button>
+        )}
       </div>
     </div>
   );

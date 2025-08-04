@@ -1,15 +1,46 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef } from 'react';
 import { supabase } from '../../services/supabaseClient';
 import { useBook } from '../../context/BookContext';
 import { useUrlState } from '../../hooks/useUrlState';
 
-const BookSidebar = ({ isOpen, onToggle }) => {
+const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
   const [breadcrumbPath, setBreadcrumbPath] = useState([]);
   const [currentLevel, setCurrentLevel] = useState([]);
   const [loading, setLoading] = useState(false);
   const [books, setBooks] = useState([]);
   const { currentBook } = useBook();
   const { selectBook } = useUrlState();
+
+  // Load saved state from localStorage
+  const loadSavedState = () => {
+    try {
+      const savedState = localStorage.getItem('bookSidebarState');
+      if (savedState) {
+        const { breadcrumbPath: savedPath, currentLevel: savedLevel, books: savedBooks } = JSON.parse(savedState);
+        setBreadcrumbPath(savedPath || []);
+        setCurrentLevel(savedLevel || []);
+        setBooks(savedBooks || []);
+        return true;
+      }
+    } catch (error) {
+      console.error('Error loading sidebar state:', error);
+    }
+    return false;
+  };
+
+  // Save current state to localStorage
+  const saveCurrentState = () => {
+    try {
+      const stateToSave = {
+        breadcrumbPath,
+        currentLevel,
+        books
+      };
+      localStorage.setItem('bookSidebarState', JSON.stringify(stateToSave));
+    } catch (error) {
+      console.error('Error saving sidebar state:', error);
+    }
+  };
 
   // Fetch collections for a specific parent
   const fetchCollections = async (parentId = null) => {
@@ -28,6 +59,9 @@ const BookSidebar = ({ isOpen, onToggle }) => {
     } else {
       setCurrentLevel([]);
     }
+    
+    // Save state after fetching collections
+    setTimeout(() => saveCurrentState(), 100);
   };
 
   const fetchBooks = async (collectionId) => {
@@ -40,6 +74,9 @@ const BookSidebar = ({ isOpen, onToggle }) => {
     } else {
       setBooks([]);
     }
+    
+    // Save state after fetching books
+    setTimeout(() => saveCurrentState(), 100);
   };
 
   // Navigate to a specific collection
@@ -51,6 +88,9 @@ const BookSidebar = ({ isOpen, onToggle }) => {
     await fetchCollections(collection.id);
     await fetchBooks(collection.id);
     setLoading(false);
+    
+    // Save state after navigation
+    setTimeout(() => saveCurrentState(), 100);
   };
 
   // Navigate back to a specific level
@@ -70,6 +110,9 @@ const BookSidebar = ({ isOpen, onToggle }) => {
       await fetchBooks(targetCollection.id);
     }
     setLoading(false);
+    
+    // Save state after navigation
+    setTimeout(() => saveCurrentState(), 100);
   };
 
   // Handle book selection
@@ -79,21 +122,32 @@ const BookSidebar = ({ isOpen, onToggle }) => {
     selectBook(book.id);
   };
 
-  // Initialize with root collections
+  // Initialize with saved state or root collections
   useEffect(() => {
     setLoading(true);
-    fetchCollections(null);
+    
+    // Try to load saved state first
+    const hasSavedState = loadSavedState();
+    
+    if (!hasSavedState) {
+      // If no saved state, start with root collections
+      fetchCollections(null);
+    }
+    
     setLoading(false);
   }, []);
 
   return (
     <>
       {/* Sidebar */}
-      <div className={`
-        fixed top-0 left-0 h-full bg-white shadow-lg z-50 transition-transform duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0 w-80' : '-translate-x-full lg:w-16'}
-        w-80 lg:relative lg:translate-x-0 lg:z-auto
-      `}>
+      <div 
+        ref={ref}
+        className={`
+          fixed top-0 left-0 h-full bg-white shadow-lg z-50 transition-transform duration-300 ease-in-out
+          ${isOpen ? 'translate-x-0 w-80' : '-translate-x-full'}
+          w-80
+        `}
+      >
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="bg-white shadow-sm border-b border-gray-200">
@@ -203,6 +257,6 @@ const BookSidebar = ({ isOpen, onToggle }) => {
       </div>
     </>
   );
-};
+});
 
 export default BookSidebar;

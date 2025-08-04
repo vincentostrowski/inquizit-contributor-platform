@@ -30,14 +30,18 @@ const ReadOnlySectionBrowser = ({ onSectionSelect, selectedSection, book }) => {
       {/* Sections List */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="space-y-2">
-          {sections.map((section) => (
-            <ReadOnlySection
-              key={section.id}
-              section={section}
-              selectedSectionId={selectedSection?.id}
-              onSelect={onSectionSelect}
-            />
-          ))}
+          {sections.map((section) => {
+            const isSelectable = section.sources_done && section.completion?.percentage === 100;
+            return (
+              <ReadOnlySection
+                key={section.id}
+                section={section}
+                selectedSectionId={selectedSection?.id}
+                onSelect={onSectionSelect}
+                isSelectable={isSelectable}
+              />
+            );
+          })}
         </div>
       </div>
     </div>

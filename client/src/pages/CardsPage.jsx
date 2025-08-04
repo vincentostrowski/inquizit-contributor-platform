@@ -64,6 +64,7 @@ const CardsPage = () => {
         <div className="w-1/2 border-l border-gray-200">
           <CardDrawer
             selectedSection={selectedSection}
+            book={currentBook}
           />
         </div>
       )}

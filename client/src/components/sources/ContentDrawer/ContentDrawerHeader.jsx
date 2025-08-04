@@ -4,11 +4,11 @@ const ContentDrawerHeader = ({ selectedSection, onUpdateSection }) => {
   const handleToggleDone = async () => {
     if (!selectedSection || !onUpdateSection) return;
 
-    const newDoneValue = !selectedSection.done;
-    await onUpdateSection(selectedSection.id, { done: newDoneValue });
+    const newDoneValue = !selectedSection.sources_done;
+    await onUpdateSection(selectedSection.id, { sources_done: newDoneValue });
   };
 
-  const isDone = selectedSection?.done || false;
+  const isDone = selectedSection?.sources_done || false;
 
   return (
     <div className="border-b border-gray-200 p-4">
@@ -23,11 +23,11 @@ const ContentDrawerHeader = ({ selectedSection, onUpdateSection }) => {
             onClick={handleToggleDone}
             className={`px-3 py-1 rounded text-sm transition-colors ${
               isDone
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                ? 'text-gray-500 hover:text-blue-700'
                 : 'bg-green-600 text-white hover:bg-green-700'
             }`}
           >
-            {isDone ? 'Edit' : 'Mark as Done'}
+            {isDone ? 'Edit' : 'Done'}
           </button>
         </div>
       </div>

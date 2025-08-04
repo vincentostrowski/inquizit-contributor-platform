@@ -8,8 +8,9 @@ const Card = ({ card, onClick }) => {
     >
       <div className="flex flex-col h-full">
         {/* Top Colored Block */}
-        <div className="bg-[#A37C7C] rounded-t-2xl h-28 flex-shrink-0"></div>
-        
+        <div className="rounded-t-2xl h-28 flex-shrink-0 p-3">
+          <div className="bg-[#A37C7C] rounded-lg w-full h-full"></div>
+        </div>
         {/* Content Area */}
         <div className="flex-1 p-4 flex flex-col">
           {/* Title */}
