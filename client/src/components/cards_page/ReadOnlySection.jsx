@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const ReadOnlySection = ({ section, selectedSectionId, onSelect, level = 0, isSelectable = true }) => {
+const ReadOnlySection = ({ section, selectedSectionId, onSelect, level = 0, isSelectable }) => {
   const [isExpanded, setIsExpanded] = useState(selectedSectionId === section.id);
   const hasChildren = section.children && section.children.length > 0;
 
@@ -86,15 +86,19 @@ const ReadOnlySection = ({ section, selectedSectionId, onSelect, level = 0, isSe
       {/* Children */}
       {hasChildren && isExpanded && (
         <div className="mt-2 space-y-2">
-          {section.children.map((child) => (
-            <ReadOnlySection
-              key={child.id}
-              section={child}
-              selectedSectionId={selectedSectionId}
-              onSelect={onSelect}
-              level={level + 1}
-            />
-          ))}
+          {section.children.map((child) => {
+            const childIsSelectable = child.sources_done;
+            return (
+              <ReadOnlySection
+                key={child.id}
+                section={child}
+                selectedSectionId={selectedSectionId}
+                onSelect={onSelect}
+                level={level + 1}
+                isSelectable={childIsSelectable}
+              />
+            );
+          })}
         </div>
       )}
     </div>

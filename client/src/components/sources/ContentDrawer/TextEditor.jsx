@@ -122,7 +122,7 @@ const TextEditor = ({ section, selectedSnippet, onSnippetSelect }) => {
           value={content}
           onChange={handleContentChange}
           readOnly={isReadOnly}
-          placeholder={isReadOnly ? "This section is marked as done. Content is read-only." : "Enter your content here. It will be used to generate the idea cards for this section."}
+          placeholder={isReadOnly ? "This section is marked as done. Press 'Edit' above to make changes." : "Enter your content here. It will be used to generate the idea cards for this section."}
           className={`w-full h-full p-3 border border-gray-300 rounded-lg resize-none text-sm ${
             isReadOnly 
               ? 'bg-gray-50 text-gray-600 cursor-default' 

@@ -17,8 +17,9 @@ const ContentDrawerHeader = ({ selectedSection, onUpdateSection, sections }) => 
     : null;
   
   // Check if all children are done (only for sections with children)
-  const canBeMarkedDone = !sectionWithChildren?.children || sectionWithChildren.children.length === 0 || 
-    sectionWithChildren.children.every(child => child.sources_done);
+  // Only calculate if sections data is properly loaded
+  const canBeMarkedDone = sections.length > 0 && (!sectionWithChildren?.children || sectionWithChildren.children.length === 0 || 
+    sectionWithChildren.children.every(child => child.sources_done));
 
   // Force re-calculation when sections or selectedSection changes
   React.useEffect(() => {
@@ -30,7 +31,7 @@ const ContentDrawerHeader = ({ selectedSection, onUpdateSection, sections }) => 
       <div className="flex items-center justify-between">
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold text-gray-900 truncate">
-            {selectedSection?.title || 'No section selected'}
+            {selectedSection?.title}
           </h1>
         </div>
         <div className="flex items-center space-x-2 ml-4">
@@ -42,11 +43,10 @@ const ContentDrawerHeader = ({ selectedSection, onUpdateSection, sections }) => 
                 ? 'text-gray-500 hover:text-blue-700'
                 : canBeMarkedDone
                   ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'text-gray-500'
             }`}
-            title={`isDone: ${isDone}, canBeMarkedDone: ${canBeMarkedDone}, children: ${sectionWithChildren?.children?.length || 0}`}
           >
-            {isDone ? 'Edit' : 'Done'}
+            {isDone ? 'Edit' : (canBeMarkedDone ? 'Done' : 'Complete all subsections')}
           </button>
         </div>
       </div>

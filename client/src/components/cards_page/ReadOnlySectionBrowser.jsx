@@ -2,20 +2,12 @@ import React, { useState, useEffect } from 'react';
 import ReadOnlySection from './ReadOnlySection';
 import { useSections } from '../../hooks/useSections';
 
-const ReadOnlySectionBrowser = ({ onSectionSelect, selectedSection, book, onSectionsRefresh }) => {
+const ReadOnlySectionBrowser = ({ onSectionSelect, selectedSection, book }) => {
   const { 
     sections, 
     loading, 
-    error,
-    refreshSections
+    error
   } = useSections(book);
-
-  // Expose refresh function to parent
-  useEffect(() => {
-    if (onSectionsRefresh) {
-      onSectionsRefresh(refreshSections);
-    }
-  }, [onSectionsRefresh, refreshSections]);
 
   if (loading) {
     return (
@@ -39,7 +31,7 @@ const ReadOnlySectionBrowser = ({ onSectionSelect, selectedSection, book, onSect
       <div className="flex-1 overflow-y-auto p-6">
         <div className="space-y-2">
           {sections.map((section) => {
-            const isSelectable = section.sources_done && section.completion?.percentage === 100;
+            const isSelectable = section.sources_done;
             return (
               <ReadOnlySection
                 key={section.id}
