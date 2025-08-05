@@ -18,6 +18,11 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
   // Check if section is ready for card creation
   const isSectionReady = sectionWithCompletion?.sources_done && sectionWithCompletion?.completion?.percentage === 100;
 
+  // Check if all children are done (only for sections with children)
+  // Only calculate if sections data is properly loaded
+  const canBeMarkedDone = sections.length > 0 && (!sectionWithCompletion?.children || sectionWithCompletion.children.length === 0 || 
+    sectionWithCompletion.children.every(child => child.card_set_done));
+
   // Get all descendant section IDs (including the selected section)
   const getAllSectionIds = (section) => {
     const ids = [section.id];
@@ -130,13 +135,16 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
                 {cards.length > 0 && (
                   <button
                     onClick={handleToggleCardSetDone}
+                    disabled={!sectionWithCompletion?.card_set_done && !canBeMarkedDone}
                     className={`px-3 py-1 rounded text-sm transition-colors ${
                       sectionWithCompletion?.card_set_done
                         ? 'text-gray-500 hover:text-blue-700'
-                        : 'bg-green-600 text-white hover:bg-green-700'
+                        : canBeMarkedDone
+                          ? 'bg-green-600 text-white hover:bg-green-700'
+                          : 'text-gray-500'
                     }`}
                   >
-                    {sectionWithCompletion?.card_set_done ? 'Edit' : 'Confirm'}
+                    {sectionWithCompletion?.card_set_done ? 'Edit' : (canBeMarkedDone ? 'Confirm' : 'Complete all subsections')}
                   </button>
                 )}
                 
