@@ -60,7 +60,7 @@ const mockActions = [
   }
 ];
 
-const ActionsList = ({ onActionSelect }) => {
+const ActionsList = ({ onActionSelect, isBlocked = false }) => {
   const handleActionClick = (action) => {
     if (onActionSelect) {
       onActionSelect(action);
@@ -68,7 +68,7 @@ const ActionsList = ({ onActionSelect }) => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-white rounded-lg border border-gray-200">
+    <div className="h-full flex flex-col bg-white rounded-lg border border-gray-200 relative overflow-hidden">
       <div className="p-4 border-b border-gray-200">
         <h3 className="text-lg font-semibold text-gray-800">Available Actions</h3>
       </div>
@@ -97,6 +97,15 @@ const ActionsList = ({ onActionSelect }) => {
           ))}
         </div>
       </div>
+      
+      {/* Simple overlay when blocked */}
+      {isBlocked && (
+        <div className="absolute inset-0 bg-white opacity-75 z-10">
+          <div className="flex items-center justify-center h-full">
+            <div className="text-white text-lg font-bold">Complete all subsections first</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

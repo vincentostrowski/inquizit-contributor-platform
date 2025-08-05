@@ -184,7 +184,10 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
             </div>
             {cards.length > 0 && !loading && !sectionWithCompletion?.card_set_done && (
               <div className="border-t border-gray-200 flex-1 min-h-0">
-                <ActionsList onActionSelect={handleActionSelect} />
+                <ActionsList 
+                  onActionSelect={handleActionSelect} 
+                  isBlocked={!canBeMarkedDone}
+                />
               </div>
             )}
           </div>
