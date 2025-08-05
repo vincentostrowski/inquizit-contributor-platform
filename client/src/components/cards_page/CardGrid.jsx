@@ -28,7 +28,7 @@ const CardGrid = ({ cards, onCardClick, onCreateCard }) => {
   // If there are cards, show them horizontally with add card below
   return (
       
-        <div className="flex gap-6 overflow-x-auto custom-scrollbar p-4">
+        <div className="flex gap-6 overflow-x-auto custom-scrollbar p-4 pr-10">
           {/* Cards Row */}
           <AddCardPlaceholder onClick={onCreateCard} />
           {cards.map((card) => (

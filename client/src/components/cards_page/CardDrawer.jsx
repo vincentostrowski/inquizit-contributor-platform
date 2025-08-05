@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import CardGrid from './CardGrid';
 import ActionsList from './ActionsList';
+import { CardEditModal } from './card_editor';
 import { supabase } from '../../services/supabaseClient';
 import { useSections } from '../../hooks/useSections';
 import { findNodeById } from '../../utils/treeUtils';
@@ -8,6 +9,8 @@ import { findNodeById } from '../../utils/treeUtils';
 const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCard, setSelectedCard] = useState(null);
   const { sections, refreshSections } = useSections(book);
 
   // Find the selected section from the processed sections data
@@ -82,13 +85,164 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
   
 
   const handleCreateCard = () => {
-    console.log('Create card clicked for section:', sectionWithCompletion?.id);
-    // TODO: Implement card creation logic
+    // Create an empty card object for the modal
+    const newCard = {
+      title: '',
+      description: '',
+      prompt: '',
+      order: cards.length + 1, // Set order to be after existing cards
+      banner: '',
+      card_idea: '',
+      book: book.id // Link to current book
+    };
+    setSelectedCard(newCard);
+    setIsModalOpen(true);
   };
 
   const handleCardClick = (card) => {
-    console.log('Card clicked:', card);
-    // TODO: Implement card detail view
+    setSelectedCard(card);
+    setIsModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedCard(null);
+  };
+
+  const handleCardDelete = async (cardId) => {
+    try {
+      // Delete the card (this will cascade to card_source_references due to foreign key)
+      const { error: deleteError } = await supabase
+        .from('cards')
+        .delete()
+        .eq('id', cardId);
+
+      if (deleteError) {
+        console.error('Error deleting card:', deleteError);
+        return;
+      }
+
+      // Refresh cards to update the list
+      const sectionIds = getAllSectionIds(sectionWithCompletion);
+      const { data: cardsData } = await supabase
+        .from('cards')
+        .select(`
+          *,
+          card_source_references!inner (
+            id,
+            created_at,
+            source_section_id,
+            source_snippet_id,
+            char_start,
+            char_end,
+            card_id
+          )
+        `)
+        .in('card_source_references.source_section_id', sectionIds)
+        .order('order', { ascending: true });
+      
+      setCards(cardsData || []);
+    } catch (error) {
+      console.error('Error deleting card:', error);
+    }
+  };
+
+  const handleCardSave = async (updatedCard) => {
+    try {
+      let cardId;
+      
+      // Check if this is a new card (no id) or existing card
+      if (!selectedCard.id) {
+        // Include all valid fields from the cards table schema
+        const cardData = {
+          title: updatedCard.title || '',
+          description: updatedCard.description || '',
+          prompt: updatedCard.prompt || '',
+          order: updatedCard.order || cards.length + 1,
+          banner: updatedCard.banner || '',
+          card_idea: updatedCard.card_idea || '',
+          book: book.id
+        };
+        
+        // Insert new card
+        const { data: newCard, error: insertError } = await supabase
+          .from('cards')
+          .insert(cardData)
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Error creating card:', insertError);
+          return;
+        }
+        
+        cardId = newCard.id;
+        
+        // Create a reference to link the card to this section
+        const { error: referenceError } = await supabase
+          .from('card_source_references')
+          .insert({
+            card_id: cardId,
+            source_section_id: sectionWithCompletion.id,
+            // No snippet_id for manually created cards
+            char_start: 0,
+            char_end: 0
+          });
+
+        if (referenceError) {
+          console.error('Error creating card reference:', referenceError);
+          // Optionally delete the card if reference creation fails
+          await supabase.from('cards').delete().eq('id', cardId);
+          return;
+        }
+      } else {
+        // Include all valid fields from the cards table schema
+        const cardData = {
+          title: updatedCard.title || '',
+          description: updatedCard.description || '',
+          prompt: updatedCard.prompt || '',
+          order: updatedCard.order || selectedCard.order,
+          banner: updatedCard.banner || '',
+          card_idea: updatedCard.card_idea || ''
+        };
+        
+        // Update existing card
+        const { error: updateError } = await supabase
+          .from('cards')
+          .update(cardData)
+          .eq('id', selectedCard.id);
+
+        if (updateError) {
+          console.error('Error updating card:', updateError);
+          return;
+        }
+        
+        cardId = selectedCard.id;
+      }
+
+      // Refresh cards to show the updated list
+      const sectionIds = getAllSectionIds(sectionWithCompletion);
+      const { data: cardsData } = await supabase
+        .from('cards')
+        .select(`
+          *,
+          card_source_references!inner (
+            id,
+            created_at,
+            source_section_id,
+            source_snippet_id,
+            char_start,
+            char_end,
+            card_id
+          )
+        `)
+        .in('card_source_references.source_section_id', sectionIds)
+        .order('order', { ascending: true });
+      
+      setCards(cardsData || []);
+    } catch (error) {
+      console.error('Error saving card:', error);
+    }
   };
 
   const handleActionSelect = (action) => {
@@ -193,6 +347,15 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
           </div>
         )}
       </div>
+
+      {/* Card Edit Modal */}
+      <CardEditModal
+        card={selectedCard}
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        onSave={handleCardSave}
+        onDelete={handleCardDelete}
+      />
     </div>
   );
 };
