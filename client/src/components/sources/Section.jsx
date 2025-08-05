@@ -1,7 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const Section = ({ section, selectedSectionId, onSelect, onCreateSubsection, onUpdateSection, onDeleteSection, level = 0 }) => {
-  const [isExpanded, setIsExpanded] = useState(selectedSectionId === section.id);
+  // Check if this section should be expanded (either selected or is an ancestor of selected section)
+  const isAncestorOfSelected = (section, selectedId) => {
+    if (!selectedId || !section.children) return false;
+    return section.children.some(child => 
+      child.id === selectedId || isAncestorOfSelected(child, selectedId)
+    );
+  };
+  
+  const shouldBeExpanded = selectedSectionId === section.id || isAncestorOfSelected(section, selectedSectionId);
+  const [isExpanded, setIsExpanded] = useState(shouldBeExpanded);
+  
+  // Update expansion state when selected section changes (for initial load)
+  useEffect(() => {
+    // Only auto-expand if this section is NOT the selected section
+    // This prevents auto-expansion when a section becomes selected
+    if (selectedSectionId !== section.id) {
+      setIsExpanded(shouldBeExpanded);
+    }
+  }, [selectedSectionId, shouldBeExpanded, section.id]);
+  
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(section.title);
   const [isHovered, setIsHovered] = useState(false);
@@ -17,12 +36,9 @@ const Section = ({ section, selectedSectionId, onSelect, onCreateSubsection, onU
   const handleClick = () => {
     if (!isEditing) {
       onSelect(section);
-      // Auto-expand when selecting a section that has children
-      // Use setTimeout to ensure visual selection happens first
-      if (hasChildren && !isExpanded) {
-        setTimeout(() => {
-          setIsExpanded(true);
-        }, 50);
+      // Toggle expansion when selecting a section that has children
+      if (hasChildren) {
+        setIsExpanded(!isExpanded);
       }
     }
   };

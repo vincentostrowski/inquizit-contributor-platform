@@ -1,7 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const ReadOnlySection = ({ section, selectedSectionId, onSelect, level = 0, isSelectable }) => {
-  const [isExpanded, setIsExpanded] = useState(selectedSectionId === section.id);
+  // Check if this section should be expanded (either selected or is an ancestor of selected section)
+  const isAncestorOfSelected = (section, selectedId) => {
+    if (!selectedId || !section.children) return false;
+    return section.children.some(child => 
+      child.id === selectedId || isAncestorOfSelected(child, selectedId)
+    );
+  };
+  
+  const shouldBeExpanded = selectedSectionId === section.id || isAncestorOfSelected(section, selectedSectionId);
+  const [isExpanded, setIsExpanded] = useState(shouldBeExpanded);
+  
+  // Update expansion state when selected section changes (for initial load)
+  useEffect(() => {
+    // Only auto-expand if this section is NOT the selected section
+    // This prevents auto-expansion when a section becomes selected
+    if (selectedSectionId !== section.id) {
+      setIsExpanded(shouldBeExpanded);
+    }
+  }, [selectedSectionId, shouldBeExpanded, section.id]);
+  
   const hasChildren = section.children && section.children.length > 0;
 
   const handleToggle = (e) => {
@@ -13,11 +32,9 @@ const ReadOnlySection = ({ section, selectedSectionId, onSelect, level = 0, isSe
 
   const handleClick = () => {
     onSelect(section);
-    // Auto-expand when selecting a section that has children
-    if (hasChildren && !isExpanded) {
-      setTimeout(() => {
-        setIsExpanded(true);
-      }, 50);
+    // Toggle expansion when selecting a section that has children
+    if (hasChildren) {
+      setIsExpanded(!isExpanded);
     }
   };
 
