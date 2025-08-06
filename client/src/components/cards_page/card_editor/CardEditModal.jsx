@@ -10,7 +10,6 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
     title: '',
     description: '',
     card_idea: '',
-    content: '',
     prompt: '',
     order: '',
     banner: ''
@@ -23,7 +22,6 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
         title: card.title || '',
         description: card.description || '',
         card_idea: card.card_idea || '',
-        content: card.content || '',
         prompt: card.prompt || '',
         order: card.order || '',
         banner: card.banner || ''
@@ -164,6 +162,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
           {activeTab === 'content' && (
             <ContentTab 
               formData={formData}
+              handleInputChange={handleInputChange}
               handleGenerate={handleGenerate}
             />
           )}

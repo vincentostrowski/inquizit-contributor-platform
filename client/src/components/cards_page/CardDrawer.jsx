@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import CardGrid from './CardGrid';
 import ActionsList from './ActionsList';
 import { CardEditModal } from './card_editor';
+import PromptModal from './PromptModal';
 import { supabase } from '../../services/supabaseClient';
 import { useSections } from '../../hooks/useSections';
 import { findNodeById } from '../../utils/treeUtils';
@@ -9,6 +10,7 @@ import { findNodeById } from '../../utils/treeUtils';
 const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
   const { sections, refreshSections } = useSections(book);
@@ -245,6 +247,97 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
     }
   };
 
+  const [promptData, setPromptData] = useState(null);
+  const [showPromptModal, setShowPromptModal] = useState(false);
+
+  const handleGenerate = async () => {
+    if (!sectionWithCompletion || generating) return;
+    
+    console.log('Starting generate process...', {
+      sectionId: sectionWithCompletion.id,
+      bookId: book.id,
+      sectionTitle: sectionWithCompletion.title
+    });
+    
+    setGenerating(true);
+    
+    try {
+      // Step 1: Generate prompts
+      console.log('Calling generate-prompt function...');
+      const { data, error } = await supabase.functions.invoke('generate-prompt', {
+        body: {
+          action: 'generate-prompt',
+          sectionId: sectionWithCompletion.id,
+          bookId: book.id
+        }
+      });
+      
+      console.log('Function response:', { data, error });
+      
+      if (error) {
+        console.error('Error generating prompts:', error);
+        alert(`Error: ${error.message}`);
+        return;
+      }
+      
+      // Step 2: Show prompts to user
+      console.log('Setting prompt data:', data);
+      setPromptData(data.data || data); // Handle both nested and direct data
+      setShowPromptModal(true);
+      
+    } catch (error) {
+      console.error('Error generating prompts:', error);
+      alert(`Unexpected error: ${error.message}`);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleProcessClaudeResponse = async (claudeResponse) => {
+    try {
+      // Process the Claude response
+      const { data, error } = await supabase.functions.invoke('generate-prompt', {
+        body: {
+          action: 'process-response',
+          sectionId: sectionWithCompletion.id,
+          bookId: book.id,
+          claudeResponse
+        }
+      });
+      
+      if (error) {
+        console.error('Error processing Claude response:', error);
+        return;
+      }
+      
+      // Refresh cards list
+      const sectionIds = getAllSectionIds(sectionWithCompletion);
+      const { data: cardsData } = await supabase
+        .from('cards')
+        .select(`
+          *,
+          card_source_references!inner (
+            id,
+            created_at,
+            source_section_id,
+            source_snippet_id,
+            char_start,
+            char_end,
+            card_id
+          )
+        `)
+        .in('card_source_references.source_section_id', sectionIds)
+        .order('order', { ascending: true });
+      
+      setCards(cardsData || []);
+      setShowPromptModal(false);
+      setPromptData(null);
+      
+    } catch (error) {
+      console.error('Error processing Claude response:', error);
+    }
+  };
+
   const handleActionSelect = (action) => {
     console.log('Action selected:', action);
     // TODO: Implement action handling
@@ -277,13 +370,27 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
               <>
                 {cards.length === 0 && !loading && (
                   <button
-                    onClick={() => {}}
-                    className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center"
+                    onClick={handleGenerate}
+                    disabled={generating}
+                    className={`px-3 py-1 rounded-lg transition-colors flex items-center ${
+                      generating 
+                        ? 'bg-gray-400 text-white cursor-not-allowed' 
+                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                    }`}
                   >
-                    <span>Generate</span>
-                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
+                    {generating ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        <span>Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Generate</span>
+                        <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                      </>
+                    )}
                   </button>
                 )}
                 {cards.length > 0 && (
@@ -355,6 +462,14 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
         onClose={handleModalClose}
         onSave={handleCardSave}
         onDelete={handleCardDelete}
+      />
+
+      {/* Prompt Modal */}
+      <PromptModal
+        isOpen={showPromptModal}
+        onClose={() => setShowPromptModal(false)}
+        promptData={promptData}
+        onProcessResponse={handleProcessClaudeResponse}
       />
     </div>
   );

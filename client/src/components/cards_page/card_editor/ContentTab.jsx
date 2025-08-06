@@ -14,8 +14,8 @@ const ContentTab = ({ formData, handleInputChange, handleGenerate }) => {
           </button>
         </div>
         <textarea
-          value={formData.content}
-          onChange={(e) => handleInputChange('content', e.target.value)}
+          value={formData.prompt || ''}
+          onChange={(e) => handleInputChange('prompt', e.target.value)}
           className="flex-1 w-full p-4 border border-gray-300 rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="Enter the main content for this card..."
         />
