@@ -4,7 +4,7 @@ import CreateSectionButton from './CreateSectionButton';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import { useSections } from '../../hooks/useSections';
 
-const SectionBrowser = ({ onSectionSelect, selectedSection, book, sections, onSectionsRefresh, onCreateSection, onDeleteSection }) => {
+const SectionBrowser = ({ onSectionSelect, selectedSection, book, sections, onSectionsRefresh, onCreateSection, onDeleteSection, onUpdateSection }) => {
   const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, section: null });
   
   const { 
@@ -36,9 +36,17 @@ const SectionBrowser = ({ onSectionSelect, selectedSection, book, sections, onSe
   };
 
   const handleUpdateSection = async (sectionId, updates) => {
-    const updatedSection = await updateSection(sectionId, updates);
-    if (updatedSection && selectedSection?.id === sectionId) {
-      onSectionSelect(updatedSection);
+    // Use parent's update function if provided, otherwise use local hook
+    if (onUpdateSection) {
+      const updatedSection = await onUpdateSection(sectionId, updates);
+      if (updatedSection && selectedSection?.id === sectionId) {
+        onSectionSelect(updatedSection);
+      }
+    } else {
+      const updatedSection = await updateSection(sectionId, updates);
+      if (updatedSection && selectedSection?.id === sectionId) {
+        onSectionSelect(updatedSection);
+      }
     }
   };
 

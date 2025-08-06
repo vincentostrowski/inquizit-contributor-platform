@@ -133,6 +133,7 @@ const Sources = () => {
           onSectionsRefresh={handleSectionsRefresh}
           onCreateSection={handleCreateSection}
           onDeleteSection={handleDeleteSection}
+          onUpdateSection={handleUpdateSection}
         />
       </div>
 
