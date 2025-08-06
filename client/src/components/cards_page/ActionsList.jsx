@@ -41,6 +41,13 @@ const ActionsList = ({ onActionSelect, isBlocked = false, cards = [] }) => {
       description: "Provide a prompt to direct AI editing of selected cards",
       icon: "✏️",
       requiresSelection: true
+    },
+    {
+      id: 'delete-all',
+      title: "Delete All Cards",
+      description: "Remove all cards for this section",
+      icon: "🗑️",
+      requiresSelection: false
     }
   ];
 

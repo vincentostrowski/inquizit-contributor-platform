@@ -35,6 +35,20 @@ const CardTab = ({ formData, handleInputChange, handleGenerate }) => {
             className="w-full p-2 border border-gray-300 rounded"
             placeholder="Enter card title..."
           />
+          <div className="flex justify-between items-center mt-1">
+            <span className="text-xs text-gray-500">
+              Recommended: 40-50 characters
+            </span>
+            <span className={`text-xs ${
+              (formData.title?.length || 0) > 50 
+                ? 'text-red-600' 
+                : (formData.title?.length || 0) > 40 
+                ? 'text-green-600' 
+                : 'text-gray-500'
+            }`}>
+              {(formData.title?.length || 0)} / 50
+            </span>
+          </div>
         </div>
 
         {/* Description */}
@@ -55,6 +69,20 @@ const CardTab = ({ formData, handleInputChange, handleGenerate }) => {
             className="w-full p-2 border border-gray-300 rounded h-24 resize-none"
             placeholder="Enter card description..."
           />
+          <div className="flex justify-between items-center mt-1">
+            <span className="text-xs text-gray-500">
+              Recommended: 100-130 characters
+            </span>
+            <span className={`text-xs ${
+              (formData.description?.length || 0) > 130 
+                ? 'text-red-600' 
+                : (formData.description?.length || 0) > 100 
+                ? 'text-green-600' 
+                : 'text-gray-500'
+            }`}>
+              {(formData.description?.length || 0)} / 130
+            </span>
+          </div>
         </div>
 
         {/* Banner Upload */}

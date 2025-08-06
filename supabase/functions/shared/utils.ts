@@ -42,7 +42,26 @@ ${existingCards.map(card => `- ${card.title}: ${card.description}`).join('\n')}`
     `Snippet ${index + 1} (ID: ${snippet.id}): ${snippet.content.substring(0, 100)}${snippet.content.length > 100 ? '...' : ''}`
   ).join('\n');
 
-  return `Generate flashcards for the following educational content:
+  return `You will be provided with a passage of non-fiction text. Your task is to extract the **core ideas** that the passage is **centered around** — not every idea mentioned.
+
+Section ID: ${sectionId}
+
+Each **concept card** must contain:
+
+1. **Title** – A short, clear phrase capturing the essence of the idea (40-50 characters max).
+2. **Description** – A paraphrased explanation of the concept (100-130 characters max).
+3. **Source References** – A list of **logically precise references** (either line numbers or character spans) from the passage that the concept is derived from or supported by.
+
+---
+
+### **Instructions**
+
+- Only extract **main ideas** that are **emphasized, developed, or repeated** in the passage.
+- Do **not extract supporting examples**, anecdotes, historical details, or background information *unless they form the core of a larger idea*.
+- Prefer **generalized concepts** over isolated facts.
+- Produce as many cards as necessary — this could mean 1 or even 20 per 1000 words.
+
+---
 
 Section: ${sectionTitle}${batchContext}
 
@@ -52,11 +71,11 @@ ${snippetRefs}
 Content:
 ${sectionContent}${existingCardsContext}
 
-Please create flashcards that:
-1. Cover the key concepts and important details
-2. Have clear, concise titles and descriptions
-3. Are suitable for learning and review
-4. Are engaging and educational
+Please create concept cards that:
+1. Extract only the **core ideas** that the passage is centered around
+2. Focus on **main ideas** that are emphasized, developed, or repeated
+3. Avoid supporting examples, anecdotes, or background details unless they form the core of a larger idea
+4. Prefer **generalized concepts** over isolated facts
 5. Do NOT duplicate any existing cards listed above
 6. Reference the specific snippet(s) that each card is based on
 
@@ -64,9 +83,9 @@ Return the response in this exact JSON format:
 {
   "cards": [
     {
-      "title": "Card Title",
-      "description": "Card description",
-      "prompt": "Content/prompt for the card",
+      "title": "Card Title", // 40-50 characters max
+      "description": "Description of the concept", // 100-130 characters max
+      "prompt": "",
       "order": 1,
       "card_idea": "Optional additional context",
       "banner": ""
@@ -75,7 +94,7 @@ Return the response in this exact JSON format:
   "references": [
     {
       "card_id": 0,
-      "source_section_id": ${sectionId},
+      "source_section_id": ${sectionId}, // Use the Section ID provided above
       "source_snippet_id": 123,
       "char_start": 0,
       "char_end": 0
@@ -83,7 +102,13 @@ Return the response in this exact JSON format:
   ]
 }
 
-IMPORTANT: For each card, set "source_snippet_id" to the ID of the snippet that the card is primarily based on. You can find the snippet IDs in the "Available Snippets" section above.`
+IMPORTANT: 
+- For each card, set "source_snippet_id" to the ID of the snippet that the card is primarily based on. You can find the snippet IDs in the "Available Snippets" section above.
+- Set "source_section_id" to the Section ID provided above (${sectionId}).
+- The "description" field should contain a paraphrased explanation of the concept, not just a brief description.
+- **Title length:** Keep titles between 40-50 characters for optimal display.
+- **Description length:** Keep descriptions between 100-130 characters for optimal display.
+- Focus on extracting the **core ideas** that the passage is centered around, not every detail mentioned.`
 }
 
 export function createContentBatches(snippets: any[], maxChars: number = 95000): { content: string[], snippets: any[] }[] {

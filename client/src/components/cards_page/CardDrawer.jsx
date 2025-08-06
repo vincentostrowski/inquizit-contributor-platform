@@ -338,9 +338,66 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
     }
   };
 
-  const handleActionSelect = (action) => {
+  const handleActionSelect = async (action) => {
     console.log('Action selected:', action);
-    // TODO: Implement action handling
+    
+    if (action.id === 'delete-all') {
+      // Confirm deletion
+      if (!window.confirm(`Are you sure you want to delete all ${cards.length} cards for this section? This action cannot be undone.`)) {
+        return;
+      }
+      
+      try {
+        // Get all card IDs for this section
+        const cardIds = cards.map(card => card.id);
+        
+        if (cardIds.length === 0) {
+          console.log('No cards to delete');
+          return;
+        }
+        
+        // Delete all cards
+        const { error: deleteError } = await supabase
+          .from('cards')
+          .delete()
+          .in('id', cardIds);
+        
+        if (deleteError) {
+          console.error('Error deleting cards:', deleteError);
+          alert('Failed to delete cards. Please try again.');
+          return;
+        }
+        
+        // Refresh the cards list
+        const sectionIds = getAllSectionIds(sectionWithCompletion);
+        const { data: cardsData } = await supabase
+          .from('cards')
+          .select(`
+            *,
+            card_source_references!inner (
+              id,
+              created_at,
+              source_section_id,
+              source_snippet_id,
+              char_start,
+              char_end,
+              card_id
+            )
+          `)
+          .in('card_source_references.source_section_id', sectionIds)
+          .order('order', { ascending: true });
+        
+        setCards(cardsData || []);
+        alert(`Successfully deleted ${cardIds.length} cards.`);
+        
+      } catch (error) {
+        console.error('Error in delete all cards:', error);
+        alert('An error occurred while deleting cards. Please try again.');
+      }
+    } else {
+      // TODO: Implement other actions
+      console.log('Action not implemented yet:', action.id);
+    }
   };
 
   const handleToggleCardSetDone = async () => {

@@ -8,7 +8,7 @@ interface GeneratePromptRequest {
   bookId: number
 }
 
-interface ProcessClaudeResponseRequest {
+interface ProcessAIResponseRequest {
   sectionId: number
   bookId: number
   claudeResponse: ClaudeResponse
@@ -120,12 +120,11 @@ async function handleGeneratePrompt({ sectionId, bookId }: GeneratePromptRequest
     sectionTitle: section.title,
     totalSnippets: snippets.length,
     totalCharacters: snippets.reduce((sum, s) => sum + s.content.length, 0),
-    batches: prompts,
-    estimatedCost: `~$${(contentBatches.length * 3).toFixed(2)} for ${contentBatches.length} batch${contentBatches.length > 1 ? 'es' : ''}`
+    batches: prompts
   }, 'Prompt generated successfully')
 }
 
-async function handleProcessResponse({ sectionId, bookId, claudeResponse }: ProcessClaudeResponseRequest, req: Request) {
+async function handleProcessResponse({ sectionId, bookId, claudeResponse }: ProcessAIResponseRequest, req: Request) {
   // Initialize Supabase client
   const supabaseClient = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
@@ -139,11 +138,11 @@ async function handleProcessResponse({ sectionId, bookId, claudeResponse }: Proc
 
   // Validate the response structure
   if (!claudeResponse.cards || !Array.isArray(claudeResponse.cards)) {
-    return createErrorResponse('Invalid Claude response: missing or invalid cards array')
+    return createErrorResponse('Invalid AI response: missing or invalid cards array')
   }
 
   if (!claudeResponse.references || !Array.isArray(claudeResponse.references)) {
-    return createErrorResponse('Invalid Claude response: missing or invalid references array')
+    return createErrorResponse('Invalid AI response: missing or invalid references array')
   }
 
   // Save cards to database

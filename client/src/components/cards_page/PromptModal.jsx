@@ -1,9 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const PromptModal = ({ isOpen, onClose, promptData, onProcessResponse }) => {
   const [currentBatch, setCurrentBatch] = useState(0);
   const [claudeResponse, setClaudeResponse] = useState('');
   const [processing, setProcessing] = useState(false);
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setClaudeResponse('');
+      setCurrentBatch(0);
+      setProcessing(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen || !promptData) return null;
 
@@ -50,9 +59,9 @@ const PromptModal = ({ isOpen, onClose, promptData, onProcessResponse }) => {
         {/* Header */}
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Generate Cards with Claude</h2>
+            <h2 className="text-xl font-bold text-gray-900">Generate Cards with AI</h2>
             <p className="text-sm text-gray-600 mt-1">
-              {sectionTitle} • {totalSnippets} snippets • {totalCharacters.toLocaleString()} characters • {estimatedCost}
+              {sectionTitle} • {totalSnippets} snippets • {totalCharacters.toLocaleString()} characters
             </p>
           </div>
           <button
@@ -68,7 +77,7 @@ const PromptModal = ({ isOpen, onClose, promptData, onProcessResponse }) => {
           {/* Left side - Prompt */}
           <div className="w-1/2 p-6 border-r border-gray-200 flex flex-col">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">Claude Prompt</h3>
+              <h3 className="font-semibold text-gray-900">AI Prompt</h3>
               <div className="flex items-center space-x-2">
                 {batches && batches.length > 1 && (
                   <div className="flex items-center space-x-2">
@@ -114,19 +123,19 @@ const PromptModal = ({ isOpen, onClose, promptData, onProcessResponse }) => {
           {/* Right side - Response */}
           <div className="w-1/2 p-6 flex flex-col">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">Paste Claude Response</h3>
+              <h3 className="font-semibold text-gray-900">Paste AI Response</h3>
             </div>
             
             <div className="flex-1 flex flex-col">
               <textarea
                 value={claudeResponse}
                 onChange={(e) => setClaudeResponse(e.target.value)}
-                placeholder="Paste the JSON response from Claude here..."
+                placeholder="Paste the JSON response from your AI assistant here..."
                 className="flex-1 w-full p-4 border border-gray-300 rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
               />
               
               <div className="mt-4 text-xs text-gray-500">
-                Make sure the response is valid JSON with the expected format
+                Make sure the response is valid JSON with the expected format (Claude, GPT, etc.)
               </div>
             </div>
           </div>
