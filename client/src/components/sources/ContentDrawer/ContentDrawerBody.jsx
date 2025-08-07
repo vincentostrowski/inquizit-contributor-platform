@@ -3,7 +3,7 @@ import TextEditor from './TextEditor';
 import NotesSection from './NotesSection';
 import SubSectionsSection from './SubSectionsSection';
 
-const ContentDrawerBody = ({ selectedSection, sections }) => {
+const ContentDrawerBody = ({ selectedSection, sections, onCharacterCountChange }) => {
   const [selectedSnippet, setSelectedSnippet] = useState(null);
 
   // Reset selectedSnippet when section changes
@@ -33,6 +33,7 @@ const ContentDrawerBody = ({ selectedSection, sections }) => {
             section={selectedSection} 
             selectedSnippet={selectedSnippet}
             onSnippetSelect={handleSnippetSelect}
+            onCharacterCountChange={onCharacterCountChange}
           />
           <SubSectionsSection section={selectedSection} sections={sections} />
         </div>

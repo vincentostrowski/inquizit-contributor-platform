@@ -1,7 +1,7 @@
 import React from 'react';
 import { findNodeById } from '../../../utils/treeUtils';
 
-const ContentDrawerHeader = ({ selectedSection, onUpdateSection, sections }) => {
+const ContentDrawerHeader = ({ selectedSection, onUpdateSection, sections, characterCount }) => {
   const handleToggleDone = async () => {
     if (!selectedSection || !onUpdateSection) return;
 
@@ -32,6 +32,9 @@ const ContentDrawerHeader = ({ selectedSection, onUpdateSection, sections }) => 
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold text-gray-900 truncate">
             {selectedSection?.title}
+            <span className="text-sm text-gray-500 ml-2">
+              ({characterCount.toLocaleString()} chars)
+            </span>
           </h1>
         </div>
         <div className="flex items-center space-x-2 ml-4">

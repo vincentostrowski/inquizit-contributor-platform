@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../services/supabaseClient';
 
-const NotesSection = ({ section, selectedSnippet, onSnippetSelect }) => {
+const NotesSection = ({ section, selectedSnippet, onSnippetSelect, onCharacterCountChange }) => {
   const [snippets, setSnippets] = useState([]);
 
   // Fetch snippets for the selected section and ensure at least one exists
@@ -51,8 +51,12 @@ const NotesSection = ({ section, selectedSnippet, onSnippetSelect }) => {
         snippet.id === selectedSnippet.id ? selectedSnippet : snippet
       );
       setSnippets(updatedSnippets);
+      
+      // Calculate and pass up new character count
+      const totalChars = updatedSnippets.reduce((sum, s) => sum + (s.content?.length || 0), 0);
+      onCharacterCountChange?.(totalChars);
     }
-  }, [selectedSnippet]);
+  }, [selectedSnippet, onCharacterCountChange]);
 
   // Auto-select first snippet when selectedSnippet is null but snippets exist
   useEffect(() => {
@@ -60,6 +64,12 @@ const NotesSection = ({ section, selectedSnippet, onSnippetSelect }) => {
       onSnippetSelect(snippets[0]);
     }
   }, [section, snippets]);
+
+  // Calculate character count whenever snippets change
+  useEffect(() => {
+    const totalChars = snippets.reduce((sum, s) => sum + (s.content?.length || 0), 0);
+    onCharacterCountChange?.(totalChars);
+  }, [snippets, onCharacterCountChange]);
 
   const handleSnippetSelect = (snippet) => {
     onSnippetSelect(snippet);
