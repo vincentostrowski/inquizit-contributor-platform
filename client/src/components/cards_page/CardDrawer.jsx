@@ -496,13 +496,14 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
       </div>
 
       {/* Card Edit Modal */}
-      <CardEditModal
-        card={selectedCard}
-        isOpen={isModalOpen}
-        onClose={handleModalClose}
-        onSave={handleCardSave}
-        onDelete={handleCardDelete}
-      />
+              <CardEditModal
+          card={selectedCard}
+          isOpen={isModalOpen}
+          onClose={handleModalClose}
+          onSave={handleCardSave}
+          onDelete={handleCardDelete}
+          selectedSection={sectionWithCompletion}
+        />
 
       {/* Prompt Modal */}
       <PromptModal

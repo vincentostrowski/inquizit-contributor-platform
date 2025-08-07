@@ -4,7 +4,7 @@ import CardTab from './CardTab';
 import ContentTab from './ContentTab';
 import QuizitTab from './QuizitTab';
 
-const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
+const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSection }) => {
   const [activeTab, setActiveTab] = useState('card'); // 'card', 'content', 'quizit'
   const [formData, setFormData] = useState({
     title: '',
@@ -17,7 +17,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
   const [conversationLink, setConversationLink] = useState('');
   const [showLinkPanel, setShowLinkPanel] = useState(false);
   const [linkInput, setLinkInput] = useState('');
-  const [copiedPrompt, setCopiedPrompt] = useState(null);
+  const [contextPromptCopied, setContextPromptCopied] = useState(false);
 
   // Update form data when card changes
   useEffect(() => {
@@ -74,8 +74,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
 
   const buildContextPrompt = async () => {
     try {
-      // Get the section ID from the card
-      const sectionId = card.snippet_chunks_for_context?.[0]?.source_section_id;
+      // Get the section ID from the selectedSection prop
+      const sectionId = selectedSection?.id;
       
       if (!sectionId) {
         return "Error: No section context available.";
@@ -234,13 +234,20 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
                   onClick={async () => {
                     const prompt = await buildContextPrompt();
                     navigator.clipboard.writeText(prompt);
-                    console.log('Context prompt copied to clipboard');
+                    setContextPromptCopied(true);
+                    setTimeout(() => setContextPromptCopied(false), 3000);
                   }}
                   className="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors flex items-center space-x-2 text-sm whitespace-nowrap"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
+                  {contextPromptCopied ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  )}
                   <span>Context Prompt</span>
                 </button>
                 
@@ -388,8 +395,6 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
               buildTitlePrompt={buildTitlePrompt}
               buildDescriptionPrompt={buildDescriptionPrompt}
               buildBannerPrompt={buildBannerPrompt}
-              copyPromptToClipboard={copyPromptToClipboard}
-              copiedPrompt={copiedPrompt}
             />
           )}
           {activeTab === 'content' && (
@@ -398,8 +403,6 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
               handleInputChange={handleInputChange}
               handleGenerate={handleGenerate}
               buildContentPrompt={buildContentPrompt}
-              copyPromptToClipboard={copyPromptToClipboard}
-              copiedPrompt={copiedPrompt}
             />
           )}
           {activeTab === 'quizit' && <QuizitTab />}
