@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../../../services/supabaseClient';
 import CardTab from './CardTab';
-import SourcesTab from './SourcesTab';
 import ContentTab from './ContentTab';
 import QuizitTab from './QuizitTab';
 
 const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
-  const [activeTab, setActiveTab] = useState('sources'); // 'sources', 'card', 'content', 'quizit'
+  const [activeTab, setActiveTab] = useState('card'); // 'card', 'content', 'quizit'
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -14,6 +14,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
     order: '',
     banner: ''
   });
+  const [newConversationLink, setNewConversationLink] = useState('');
+  const [savingLink, setSavingLink] = useState(false);
 
   // Update form data when card changes
   useEffect(() => {
@@ -29,6 +31,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
     }
   }, [card]);
 
+
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -39,6 +43,53 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
   const handleGenerate = (field) => {
     // Mock generation - replace with actual AI call
     console.log(`Generating ${field}...`);
+  };
+
+  const handleLinkClick = (link) => {
+    if (link) {
+      window.open(link, '_blank');
+    }
+  };
+
+  const handleSaveConversationLink = async () => {
+    if (!newConversationLink.trim() || !card?.id) return;
+    
+    setSavingLink(true);
+    try {
+      // Find existing snippet chunk for this card or create a new one
+      const existingChunk = card.snippet_chunks_for_context?.find(chunk => chunk.card_id === card.id);
+      
+      if (existingChunk) {
+        // Update existing chunk
+        const { error } = await supabase
+          .from('snippet_chunks_for_context')
+          .update({ link: newConversationLink.trim() })
+          .eq('id', existingChunk.id);
+        
+        if (error) throw error;
+      } else {
+        // Create new chunk
+        const { error } = await supabase
+          .from('snippet_chunks_for_context')
+          .insert({
+            card_id: card.id,
+            source_section_id: null, // Will be set when card is associated with a section
+            source_snippet_id: null,
+            link: newConversationLink.trim()
+          });
+        
+        if (error) throw error;
+      }
+      
+      setNewConversationLink('');
+      // Refresh the card data by calling onSave with current formData
+      onSave(formData);
+    } catch (error) {
+      console.error('Error saving conversation link:', error);
+      alert('Failed to save conversation link. Please try again.');
+    } finally {
+      setSavingLink(false);
+    }
   };
 
   const handleSave = () => {
@@ -85,22 +136,11 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
           />
         </div>
 
+
+
         {/* Tab Navigation */}
         <div className="flex border-b border-gray-200 bg-gray-50 relative">
           <div className="flex flex-1">
-            <button
-              onClick={() => setActiveTab('sources')}
-              className={`px-6 py-4 font-medium text-sm transition-all duration-200 relative ${
-                activeTab === 'sources' 
-                  ? 'text-blue-600 bg-white border-b-2 border-blue-500 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
-              }`}
-            >
-              Sources
-              {activeTab === 'sources' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>
-              )}
-            </button>
             <button
               onClick={() => setActiveTab('card')}
               className={`px-6 py-4 font-medium text-sm transition-all duration-200 relative ${
@@ -141,17 +181,102 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
               )}
             </button>
           </div>
+          
+          {/* Conversation Link Button */}
+          {card?.id && (
+            <div className="flex items-center px-4 space-x-2">
+              {card.snippet_chunks_for_context && card.snippet_chunks_for_context.filter(chunk => chunk.link).length > 0 ? (
+                <>
+                  <button
+                    onClick={() => handleLinkClick(card.snippet_chunks_for_context.find(chunk => chunk.link)?.link)}
+                    className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                  >
+                    Open Conversation
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const currentLink = card.snippet_chunks_for_context.find(chunk => chunk.link)?.link;
+                      const newLink = prompt('Edit conversation link:', currentLink);
+                      if (newLink && newLink !== currentLink && card?.id) {
+                        setSavingLink(true);
+                        try {
+                          const existingChunk = card.snippet_chunks_for_context.find(chunk => chunk.link);
+                          if (existingChunk) {
+                            const { error } = await supabase
+                              .from('snippet_chunks_for_context')
+                              .update({ link: newLink.trim() })
+                              .eq('id', existingChunk.id);
+                            
+                            if (error) throw error;
+                            onSave(formData);
+                          }
+                        } catch (error) {
+                          console.error('Error updating conversation link:', error);
+                          alert('Failed to update conversation link. Please try again.');
+                        } finally {
+                          setSavingLink(false);
+                        }
+                      }
+                    }}
+                    className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                    title="Edit conversation link"
+                  >
+                    ✏️
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={async () => {
+                    const link = prompt('Paste your conversation link:');
+                    if (link && card?.id) {
+                      setSavingLink(true);
+                      try {
+                        // Find existing snippet chunk for this card or create a new one
+                        const existingChunk = card.snippet_chunks_for_context?.find(chunk => chunk.card_id === card.id);
+                        
+                        if (existingChunk) {
+                          // Update existing chunk
+                          const { error } = await supabase
+                            .from('snippet_chunks_for_context')
+                            .update({ link: link.trim() })
+                            .eq('id', existingChunk.id);
+                          
+                          if (error) throw error;
+                        } else {
+                          // Create new chunk
+                          const { error } = await supabase
+                            .from('snippet_chunks_for_context')
+                            .insert({
+                              card_id: card.id,
+                              source_section_id: null,
+                              source_snippet_id: null,
+                              link: link.trim()
+                            });
+                          
+                          if (error) throw error;
+                        }
+                        
+                        // Refresh the card data by calling onSave with current formData
+                        onSave(formData);
+                      } catch (error) {
+                        console.error('Error saving conversation link:', error);
+                        alert('Failed to save conversation link. Please try again.');
+                      } finally {
+                        setSavingLink(false);
+                      }
+                    }
+                  }}
+                  className="px-3 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                >
+                  Add Link
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Content Area */}
         <div className="flex-1 flex overflow-hidden">
-          {activeTab === 'sources' && (
-            <SourcesTab 
-              formData={formData}
-              handleInputChange={handleInputChange}
-              handleGenerate={handleGenerate}
-            />
-          )}
           {activeTab === 'card' && (
             <CardTab 
               formData={formData}

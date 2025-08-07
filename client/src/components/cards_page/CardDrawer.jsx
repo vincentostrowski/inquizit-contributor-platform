@@ -39,6 +39,38 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
     return ids;
   };
 
+  // Helper function to fetch cards with conversation links
+  const fetchCardsWithLinks = async (sectionIds) => {
+    const { data: cardsData, error } = await supabase
+      .from('cards')
+      .select(`
+        *,
+        snippet_chunks_for_context!inner (
+          id,
+          created_at,
+          source_section_id,
+          source_snippet_id,
+          link,
+          card_id,
+          source_sections (
+            id,
+            title
+          )
+        )
+      `)
+      .in('snippet_chunks_for_context.source_section_id', sectionIds)
+      .order('order', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching cards:', error);
+      return [];
+    }
+    
+    return cardsData || [];
+  };
+
+
+
   // Fetch cards when sectionWithCompletion changes
   useEffect(() => {
     const fetchCards = async () => {
@@ -46,30 +78,8 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
         setLoading(true);
         try {
           const sectionIds = getAllSectionIds(sectionWithCompletion);
-
-          // Fetch cards that have snippet chunks pointing to the selected section or any of its descendants
-          const { data: cardsData, error } = await supabase
-            .from('cards')
-            .select(`
-              *,
-              snippet_chunks_for_context!inner (
-                id,
-                created_at,
-                source_section_id,
-                source_snippet_id,
-                link,
-                card_id
-              )
-            `)
-            .in('snippet_chunks_for_context.source_section_id', sectionIds)
-            .order('order', { ascending: true });
-
-          if (error) {
-            console.error('Error fetching cards:', error);
-            setCards([]);
-          } else {
-            setCards(cardsData || []);
-          }
+          const cardsData = await fetchCardsWithLinks(sectionIds);
+          setCards(cardsData);
         } catch (error) {
           console.error('Error fetching cards:', error);
           setCards([]);
@@ -125,23 +135,8 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
 
       // Refresh cards to update the list
       const sectionIds = getAllSectionIds(sectionWithCompletion);
-      const { data: cardsData } = await supabase
-        .from('cards')
-        .select(`
-          *,
-          snippet_chunks_for_context!inner (
-            id,
-            created_at,
-            source_section_id,
-            source_snippet_id,
-            link,
-            card_id
-          )
-        `)
-        .in('snippet_chunks_for_context.source_section_id', sectionIds)
-        .order('order', { ascending: true });
-      
-      setCards(cardsData || []);
+      const cardsData = await fetchCardsWithLinks(sectionIds);
+      setCards(cardsData);
     } catch (error) {
       console.error('Error deleting card:', error);
     }
@@ -221,23 +216,8 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
 
       // Refresh cards to show the updated list
       const sectionIds = getAllSectionIds(sectionWithCompletion);
-      const { data: cardsData } = await supabase
-        .from('cards')
-        .select(`
-          *,
-          snippet_chunks_for_context!inner (
-            id,
-            created_at,
-            source_section_id,
-            source_snippet_id,
-            link,
-            card_id
-          )
-        `)
-        .in('snippet_chunks_for_context.source_section_id', sectionIds)
-        .order('order', { ascending: true });
-      
-      setCards(cardsData || []);
+      const cardsData = await fetchCardsWithLinks(sectionIds);
+      setCards(cardsData);
     } catch (error) {
       console.error('Error saving card:', error);
     }
@@ -308,23 +288,8 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
       
       // Refresh cards list
       const sectionIds = getAllSectionIds(sectionWithCompletion);
-      const { data: cardsData } = await supabase
-        .from('cards')
-        .select(`
-          *,
-          snippet_chunks_for_context!inner (
-            id,
-            created_at,
-            source_section_id,
-            source_snippet_id,
-            link,
-            card_id
-          )
-        `)
-        .in('snippet_chunks_for_context.source_section_id', sectionIds)
-        .order('order', { ascending: true });
-      
-      setCards(cardsData || []);
+      const cardsData = await fetchCardsWithLinks(sectionIds);
+      setCards(cardsData);
       setShowPromptModal(false);
       setPromptData(null);
       
@@ -365,23 +330,8 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
         
         // Refresh the cards list
         const sectionIds = getAllSectionIds(sectionWithCompletion);
-        const { data: cardsData } = await supabase
-          .from('cards')
-          .select(`
-            *,
-            snippet_chunks_for_context!inner (
-              id,
-              created_at,
-              source_section_id,
-              source_snippet_id,
-              link,
-              card_id
-            )
-          `)
-          .in('snippet_chunks_for_context.source_section_id', sectionIds)
-          .order('order', { ascending: true });
-        
-        setCards(cardsData || []);
+        const cardsData = await fetchCardsWithLinks(sectionIds);
+        setCards(cardsData);
         alert(`Successfully deleted ${cardIds.length} cards.`);
         
       } catch (error) {

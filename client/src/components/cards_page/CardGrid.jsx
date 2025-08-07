@@ -19,7 +19,7 @@ const CardGrid = ({ cards, onCardClick, onCreateCard }) => {
   // If no cards, show just the add card placeholder
   if (cards.length === 0) {
     return (
-      <div className="flex justify-start">
+      <div className="flex justify-start p-10">
         <AddCardPlaceholder onClick={onCreateCard} />
       </div>
     );
