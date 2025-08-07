@@ -180,7 +180,7 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
             card_id: cardId,
             source_section_id: sectionWithCompletion.id,
             // No snippet_id for manually created cards
-            link: null
+            link: updatedCard.conversationLink || null
           });
 
         if (chunkError) {
