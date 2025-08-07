@@ -482,6 +482,7 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
                 cards={cards} 
                 onCardClick={handleCardClick}
                 onCreateCard={handleCreateCard}
+                cardSetDone={sectionWithCompletion?.card_set_done}
               />
             {cards.length > 0 && !loading && !sectionWithCompletion?.card_set_done && (
               <div className="border-t border-gray-200 flex-1 min-h-0">

@@ -15,9 +15,9 @@ const AddCardPlaceholder = ({ onClick }) => {
   );
 };
 
-const CardGrid = ({ cards, onCardClick, onCreateCard }) => {
-  // If no cards, show just the add card placeholder
-  if (cards.length === 0) {
+const CardGrid = ({ cards, onCardClick, onCreateCard, cardSetDone }) => {
+  // If no cards and card set is not done, show just the add card placeholder
+  if (cards.length === 0 && !cardSetDone) {
     return (
       <div className="flex justify-start p-10">
         <AddCardPlaceholder onClick={onCreateCard} />
@@ -25,20 +25,33 @@ const CardGrid = ({ cards, onCardClick, onCreateCard }) => {
     );
   }
 
-  // If there are cards, show them horizontally with add card below
-  return (
-      
-        <div className="flex gap-6 overflow-x-auto custom-scrollbar p-10">
-          {/* Cards Row */}
-          <AddCardPlaceholder onClick={onCreateCard} />
-          {cards.map((card) => (
-            <Card 
-              key={card.id} 
-              card={card} 
-              onClick={onCardClick}
-            />
-          ))}
+  // If card set is done, don't show add card placeholder
+  if (cardSetDone) {
+    return (
+      <div className="flex gap-6 overflow-x-auto custom-scrollbar p-10">
+        {cards.map((card) => (
+          <Card 
+            key={card.id} 
+            card={card} 
+            onClick={onCardClick}
+          />
+        ))}
       </div>
+    );
+  }
+
+  // Normal case: show cards with add card placeholder
+  return (
+    <div className="flex gap-6 overflow-x-auto custom-scrollbar p-10">
+      <AddCardPlaceholder onClick={onCreateCard} />
+      {cards.map((card) => (
+        <Card 
+          key={card.id} 
+          card={card} 
+          onClick={onCardClick}
+        />
+      ))}
+    </div>
   );
 };
 
