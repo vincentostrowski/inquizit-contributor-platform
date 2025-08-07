@@ -108,35 +108,31 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-100 rounded-lg w-11/12 h-5/6 max-w-7xl flex flex-col relative">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl w-8 h-8 flex items-center justify-center hover:bg-gray-200 rounded-full transition-colors z-10"
-        >
-          ×
-        </button>
-        
-        {/* Card Idea Section */}
-        <div className="bg-white p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-2 mb-2">
-            <label className="font-medium">Card Idea</label>
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Optional</span>
+      <div className="flex w-11/12 h-5/6 max-w-7xl">
+        {/* Card Idea Section - Left Side */}
+        <div className="w-80 bg-white rounded-l-lg flex flex-col border-r border-gray-200">
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center space-x-2 mb-2">
+              <label className="font-medium text-sm">Card Idea</label>
+              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Optional</span>
+            </div>
+            <p className="text-xs text-gray-600 mb-3">
+              Additional context or direction for card generation
+            </p>
           </div>
-          <p className="text-xs text-gray-600 mb-3">
-            Use this for additional direction or clarification if the description isn't enough. 
-            This can be used to anchor further generations for titles, descriptions, and other card content.
-          </p>
-          <textarea
-            value={formData.card_idea}
-            onChange={(e) => handleInputChange('card_idea', e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="Enter additional context, direction, or clarification..."
-            rows="3"
-          />
+          
+          <div className="flex-1 p-4 flex flex-col">
+            <textarea
+              value={formData.card_idea}
+              onChange={(e) => handleInputChange('card_idea', e.target.value)}
+              className="flex-1 w-full p-3 border border-gray-300 rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              placeholder="Enter additional context, direction, or clarification..."
+            />
+          </div>
         </div>
 
-
+        {/* Original Modal Content */}
+        <div className="bg-gray-100 rounded-r-lg flex-1 flex flex-col relative">
 
         {/* Tab Navigation */}
         <div className="flex border-b border-gray-200 bg-gray-50 relative">
@@ -182,10 +178,11 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
             </button>
           </div>
           
-          {/* Conversation Link Button */}
-          {card?.id && (
-            <div className="flex items-center px-4 space-x-2">
-              {card.snippet_chunks_for_context && card.snippet_chunks_for_context.filter(chunk => chunk.link).length > 0 ? (
+          {/* Right side buttons - Conversation Link and Close */}
+          <div className="flex items-center px-4 space-x-2">
+            {/* Conversation Link Button */}
+            {card?.id && (
+              card.snippet_chunks_for_context && card.snippet_chunks_for_context.filter(chunk => chunk.link).length > 0 ? (
                 <>
                   <button
                     onClick={() => handleLinkClick(card.snippet_chunks_for_context.find(chunk => chunk.link)?.link)}
@@ -270,9 +267,17 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
                 >
                   Add Link
                 </button>
-              )}
-            </div>
-          )}
+              )
+            )}
+            
+            {/* Close Button */}
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 text-xl w-6 h-6 flex items-center justify-center hover:bg-gray-200 rounded-full transition-colors"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         {/* Content Area */}
@@ -320,6 +325,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
               Save
             </button>
           </div>
+        </div>
         </div>
       </div>
     </div>
