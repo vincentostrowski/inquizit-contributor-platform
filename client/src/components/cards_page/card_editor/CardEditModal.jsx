@@ -17,6 +17,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
   const [conversationLink, setConversationLink] = useState('');
   const [showLinkPanel, setShowLinkPanel] = useState(false);
   const [linkInput, setLinkInput] = useState('');
+  const [copiedPrompt, setCopiedPrompt] = useState(null);
 
   // Update form data when card changes
   useEffect(() => {
@@ -105,6 +106,84 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
     }
   };
 
+  const buildTitlePrompt = () => {
+    let prompt = "Create the title for the concept card. The title must be less than 50 characters and should capture the core concept clearly.";
+    
+    if (formData.description?.trim()) {
+      prompt += `\n\nDescription: ${formData.description}`;
+    }
+    
+    if (formData.card_idea?.trim()) {
+      prompt += `\n\nCard Idea: ${formData.card_idea}`;
+    }
+    
+    return prompt;
+  };
+
+  const buildDescriptionPrompt = () => {
+    let prompt = "Create the description for the concept card. The description must be between 100-130 characters and should explain the concept clearly. You can take into account the source content this card is derived from.";
+    
+    if (formData.title?.trim()) {
+      prompt += `\n\nTitle: ${formData.title}`;
+    }
+    
+    if (formData.card_idea?.trim()) {
+      prompt += `\n\nCard Idea: ${formData.card_idea}`;
+    }
+    
+    return prompt;
+  };
+
+  const buildBannerPrompt = () => {
+    let prompt = "Generate a banner image for this concept card. The banner should be visually appealing and relevant to the card's content.";
+    
+    if (formData.title?.trim()) {
+      prompt += `\n\nTitle: ${formData.title}`;
+    }
+    
+    if (formData.description?.trim()) {
+      prompt += `\n\nDescription: ${formData.description}`;
+    }
+    
+    if (formData.card_idea?.trim()) {
+      prompt += `\n\nCard Idea: ${formData.card_idea}`;
+    }
+    
+    return prompt;
+  };
+
+  const buildContentPrompt = () => {
+    let prompt = "Create the main content for this concept card. This should use the support, elaboration and examples of the source text sent earlier. Aim to be as concise as possible and being self contained. This Content should not have to require outside context.";
+    
+    if (formData.title?.trim()) {
+      prompt += `\n\nTitle: ${formData.title}`;
+    }
+    
+    if (formData.description?.trim()) {
+      prompt += `\n\nDescription: ${formData.description}`;
+    }
+    
+    if (formData.card_idea?.trim()) {
+      prompt += `\n\nCard Idea: ${formData.card_idea}`;
+    }
+    
+    return prompt;
+  };
+
+  const copyPromptToClipboard = async (prompt, promptType) => {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setCopiedPrompt(promptType);
+      console.log(`${promptType} prompt copied to clipboard`);
+      
+      // Reset the copied state after 2 seconds
+      setTimeout(() => {
+        setCopiedPrompt(null);
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy prompt:', error);
+    }
+  };
 
 
   const handleSave = () => {
@@ -306,6 +385,11 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
               formData={formData}
               handleInputChange={handleInputChange}
               handleGenerate={handleGenerate}
+              buildTitlePrompt={buildTitlePrompt}
+              buildDescriptionPrompt={buildDescriptionPrompt}
+              buildBannerPrompt={buildBannerPrompt}
+              copyPromptToClipboard={copyPromptToClipboard}
+              copiedPrompt={copiedPrompt}
             />
           )}
           {activeTab === 'content' && (
@@ -313,6 +397,9 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
               formData={formData}
               handleInputChange={handleInputChange}
               handleGenerate={handleGenerate}
+              buildContentPrompt={buildContentPrompt}
+              copyPromptToClipboard={copyPromptToClipboard}
+              copiedPrompt={copiedPrompt}
             />
           )}
           {activeTab === 'quizit' && <QuizitTab />}

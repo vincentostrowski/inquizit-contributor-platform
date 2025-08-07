@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Card from '../Card';
 
-const CardTab = ({ formData, handleInputChange, handleGenerate }) => {
+const CardTab = ({ formData, handleInputChange, handleGenerate, buildTitlePrompt, buildDescriptionPrompt, buildBannerPrompt }) => {
+  const [titleCopied, setTitleCopied] = useState(false);
+  const [descriptionCopied, setDescriptionCopied] = useState(false);
+  const [bannerCopied, setBannerCopied] = useState(false);
   return (
     <div className="flex-1 p-6 overflow-y-auto">
       {/* Card Preview */}
@@ -21,13 +24,24 @@ const CardTab = ({ formData, handleInputChange, handleGenerate }) => {
           <div className="flex items-center justify-between mb-2">
             <label className="font-medium">Title</label>
             <button
-              onClick={() => handleGenerate('title')}
+              onClick={() => {
+                const prompt = buildTitlePrompt();
+                navigator.clipboard.writeText(prompt);
+                setTitleCopied(true);
+                setTimeout(() => setTitleCopied(false), 3000);
+              }}
               className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm flex items-center space-x-1"
             >
               <span>Prompt</span>
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
+              {titleCopied ? (
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              )}
             </button>
           </div>
           <input
@@ -58,13 +72,24 @@ const CardTab = ({ formData, handleInputChange, handleGenerate }) => {
           <div className="flex items-center justify-between mb-2">
             <label className="font-medium">Description</label>
             <button
-              onClick={() => handleGenerate('description')}
+              onClick={() => {
+                const prompt = buildDescriptionPrompt();
+                navigator.clipboard.writeText(prompt);
+                setDescriptionCopied(true);
+                setTimeout(() => setDescriptionCopied(false), 3000);
+              }}
               className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm flex items-center space-x-1"
             >
               <span>Prompt</span>
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
+              {descriptionCopied ? (
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              )}
             </button>
           </div>
           <textarea
@@ -95,15 +120,23 @@ const CardTab = ({ formData, handleInputChange, handleGenerate }) => {
             <label className="font-medium">Banner Image</label>
             <button
               onClick={() => {
-                const prompt = `Generate a banner image for a card with title: "${formData.title || 'Card Title'}" and description: "${formData.description || 'Card description'}"`;
+                const prompt = buildBannerPrompt();
                 navigator.clipboard.writeText(prompt);
+                setBannerCopied(true);
+                setTimeout(() => setBannerCopied(false), 3000);
               }}
               className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm flex items-center space-x-1"
             >
               <span>Prompt</span>
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
+              {bannerCopied ? (
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              )}
             </button>
           </div>
           
