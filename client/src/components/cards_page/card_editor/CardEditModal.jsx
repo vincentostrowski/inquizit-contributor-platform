@@ -80,11 +80,12 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete }) => {
         return "Error: No section context available.";
       }
 
-      // Fetch all snippets for this section
+      // Fetch all snippets for this section, ordered by creation time
       const { data: snippets, error } = await supabase
         .from('source_snippets')
         .select('content')
-        .eq('section_id', sectionId);
+        .eq('section_id', sectionId)
+        .order('created_at', { ascending: true });
 
       if (error) {
         console.error('Error fetching snippets:', error);
