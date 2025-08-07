@@ -13,6 +13,7 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
   const [generating, setGenerating] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
+  const [sectionDefaultLink, setSectionDefaultLink] = useState(null);
   const { sections, refreshSections } = useSections(book);
 
   // Find the selected section from the processed sections data
@@ -69,9 +70,45 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
     return cardsData || [];
   };
 
+  // Helper function to fetch section's default conversation link
+  const fetchSectionDefaultLink = async (sectionId) => {
+    if (!sectionId) {
+      setSectionDefaultLink(null);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('snippet_chunks_for_context')
+        .select('link')
+        .not('link', 'is', null)
+        .eq('source_section_id', sectionId)
+        .limit(1);
+
+      if (!error && data && data.length > 0 && data[0]?.link) {
+        setSectionDefaultLink(data[0].link);
+      } else {
+        setSectionDefaultLink(null);
+      }
+    } catch (error) {
+      console.error('Error fetching section default link:', error);
+      setSectionDefaultLink(null);
+    }
+  };
+
+  // Helper function to refresh cards and section default link
+  const refreshCardsAndDefaultLink = async () => {
+    if (sectionWithCompletion) {
+      const sectionIds = getAllSectionIds(sectionWithCompletion);
+      const cardsData = await fetchCardsWithLinks(sectionIds);
+      setCards(cardsData);
+      await fetchSectionDefaultLink(sectionWithCompletion.id);
+    }
+  };
 
 
-  // Fetch cards when sectionWithCompletion changes
+
+  // Fetch cards and section default link when sectionWithCompletion changes
   useEffect(() => {
     const fetchCards = async () => {
       if (sectionWithCompletion) {
@@ -80,6 +117,9 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
           const sectionIds = getAllSectionIds(sectionWithCompletion);
           const cardsData = await fetchCardsWithLinks(sectionIds);
           setCards(cardsData);
+          
+          // Fetch the section's default conversation link
+          await fetchSectionDefaultLink(sectionWithCompletion.id);
         } catch (error) {
           console.error('Error fetching cards:', error);
           setCards([]);
@@ -88,6 +128,7 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
         }
       } else {
         setCards([]);
+        setSectionDefaultLink(null);
       }
     };
 
@@ -104,14 +145,20 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
       order: cards.length + 1, // Set order to be after existing cards
       banner: '',
       card_idea: '',
-      book: book.id // Link to current book
+      book: book.id, // Link to current book
+      conversationLink: sectionDefaultLink // Use the section's default link if it exists
     };
     setSelectedCard(newCard);
     setIsModalOpen(true);
   };
 
   const handleCardClick = (card) => {
-    setSelectedCard(card);
+    // Add the section default link to the card if it doesn't already have a conversation link
+    const cardWithDefaultLink = {
+      ...card,
+      conversationLink: card.conversationLink || sectionDefaultLink
+    };
+    setSelectedCard(cardWithDefaultLink);
     setIsModalOpen(true);
   };
 
@@ -133,10 +180,8 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
         return;
       }
 
-      // Refresh cards to update the list
-      const sectionIds = getAllSectionIds(sectionWithCompletion);
-      const cardsData = await fetchCardsWithLinks(sectionIds);
-      setCards(cardsData);
+      // Refresh cards and section default link
+      await refreshCardsAndDefaultLink();
     } catch (error) {
       console.error('Error deleting card:', error);
     }
@@ -214,10 +259,8 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
         cardId = selectedCard.id;
       }
 
-      // Refresh cards to show the updated list
-      const sectionIds = getAllSectionIds(sectionWithCompletion);
-      const cardsData = await fetchCardsWithLinks(sectionIds);
-      setCards(cardsData);
+      // Refresh cards and section default link
+      await refreshCardsAndDefaultLink();
     } catch (error) {
       console.error('Error saving card:', error);
     }
@@ -328,10 +371,8 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
           return;
         }
         
-        // Refresh the cards list
-        const sectionIds = getAllSectionIds(sectionWithCompletion);
-        const cardsData = await fetchCardsWithLinks(sectionIds);
-        setCards(cardsData);
+        // Refresh the cards list and section default link
+        await refreshCardsAndDefaultLink();
         alert(`Successfully deleted ${cardIds.length} cards.`);
         
       } catch (error) {
