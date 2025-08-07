@@ -4,6 +4,7 @@ const PromptModal = ({ isOpen, onClose, promptData, onProcessResponse }) => {
   const [currentBatch, setCurrentBatch] = useState(0);
   const [claudeResponse, setClaudeResponse] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [conversationLink, setConversationLink] = useState('');
 
   // Reset state when modal opens
   useEffect(() => {
@@ -11,6 +12,7 @@ const PromptModal = ({ isOpen, onClose, promptData, onProcessResponse }) => {
       setClaudeResponse('');
       setCurrentBatch(0);
       setProcessing(false);
+      setConversationLink('');
     }
   }, [isOpen]);
 
@@ -34,6 +36,12 @@ const PromptModal = ({ isOpen, onClose, promptData, onProcessResponse }) => {
     try {
       // Parse the JSON response
       const parsedResponse = JSON.parse(claudeResponse);
+      
+      // Add conversation link to the response if provided
+      if (conversationLink.trim()) {
+        parsedResponse.conversationLink = conversationLink.trim();
+      }
+      
       await onProcessResponse(parsedResponse);
     } catch (error) {
       alert('Invalid JSON response. Please check the format.');
@@ -120,7 +128,7 @@ const PromptModal = ({ isOpen, onClose, promptData, onProcessResponse }) => {
             </div>
           </div>
 
-          {/* Right side - Response */}
+          {/* Right side - Response and Conversation Link */}
           <div className="w-1/2 p-6 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-900">Paste AI Response</h3>
@@ -136,6 +144,25 @@ const PromptModal = ({ isOpen, onClose, promptData, onProcessResponse }) => {
               
               <div className="mt-4 text-xs text-gray-500">
                 Make sure the response is valid JSON with the expected format (Claude, GPT, etc.)
+              </div>
+            </div>
+
+            {/* Conversation Link Section */}
+            <div className="mt-6 border-t border-gray-200 pt-4">
+              <div className="mb-2">
+                <h4 className="text-sm font-medium text-gray-900">Conversation Link (Optional)</h4>
+              </div>
+              
+              <input
+                type="text"
+                value={conversationLink}
+                onChange={(e) => setConversationLink(e.target.value)}
+                placeholder="Paste the link to your AI conversation here..."
+                className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              
+              <div className="mt-1 text-xs text-gray-500">
+                This link will be saved when you process the response
               </div>
             </div>
           </div>

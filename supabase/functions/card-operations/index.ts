@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, createErrorResponse, createSuccessResponse } from '../shared/utils.ts'
-import { ClaudeResponse, DatabaseCard, DatabaseCardReference } from '../shared/types.ts'
+import { CardGenerationResponse, DatabaseCard, DatabaseSnippetChunkForContext } from '../shared/types.ts'
 
 interface SaveCardsRequest {
-  claudeResponse: ClaudeResponse
+  claudeResponse: CardGenerationResponse
   bookId: number
 }
 
@@ -46,19 +46,21 @@ serve(async (req) => {
       return createErrorResponse('Failed to save cards')
     }
 
-    // Save references to database
-    const referencesWithCardIds = claudeResponse.references.map((ref, index) => ({
-      ...ref,
-      card_id: savedCards[index].id
+    // Create snippet chunks for each card with the conversation link
+    const snippetChunksWithCardIds = savedCards.map((card, index) => ({
+      card_id: card.id,
+      source_section_id: null, // Will need to be provided in the request
+      source_snippet_id: null, // Will be filled in step 2
+      link: claudeResponse.conversationLink || null
     }))
 
     const { error: refsError } = await supabaseClient
-      .from('card_source_references')
-      .insert(referencesWithCardIds)
+      .from('snippet_chunks_for_context')
+      .insert(snippetChunksWithCardIds)
 
     if (refsError) {
-      console.error('Error saving references:', refsError)
-      return createErrorResponse('Failed to save references')
+      console.error('Error saving snippet chunks:', refsError)
+      return createErrorResponse('Failed to save snippet chunks')
     }
 
     return createSuccessResponse({

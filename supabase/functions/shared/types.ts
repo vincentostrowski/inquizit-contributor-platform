@@ -5,9 +5,10 @@ export interface GenerateCardsRequest {
   bookId: number
 }
 
-export interface ClaudeResponse {
+export interface CardGenerationResponse {
   cards: Card[]
-  references: CardReference[]
+  snippetChunks?: SnippetChunkForContext[]
+  conversationLink?: string
 }
 
 export interface Card {
@@ -19,12 +20,11 @@ export interface Card {
   banner: string
 }
 
-export interface CardReference {
+export interface SnippetChunkForContext {
   card_id: number
   source_section_id: number
   source_snippet_id: number | null
-  char_start: number
-  char_end: number
+  link: string | null
 }
 
 export interface DatabaseCard {
@@ -39,13 +39,12 @@ export interface DatabaseCard {
   created_at: string
 }
 
-export interface DatabaseCardReference {
+export interface DatabaseSnippetChunkForContext {
   id: number
   card_id: number
   source_section_id: number
   source_snippet_id: number | null
-  char_start: number
-  char_end: number
+  link: string | null
   created_at: string
 }
 

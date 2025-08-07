@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, createErrorResponse, createSuccessResponse, buildClaudePrompt, createContentBatches } from '../shared/utils.ts'
-import { GenerateCardsRequest, ClaudeResponse } from '../shared/types.ts'
+import { GenerateCardsRequest, CardGenerationResponse } from '../shared/types.ts'
 
 interface GeneratePromptRequest {
   sectionId: number
@@ -11,7 +11,7 @@ interface GeneratePromptRequest {
 interface ProcessAIResponseRequest {
   sectionId: number
   bookId: number
-  claudeResponse: ClaudeResponse
+  claudeResponse: CardGenerationResponse
 }
 
 serve(async (req) => {
@@ -26,7 +26,7 @@ serve(async (req) => {
     if (action === 'generate-prompt') {
       return await handleGeneratePrompt(data as GeneratePromptRequest, req)
     } else if (action === 'process-response') {
-      return await handleProcessResponse(data as ProcessClaudeResponseRequest, req)
+      return await handleProcessResponse(data as ProcessAIResponseRequest, req)
     } else {
       return createErrorResponse('Invalid action. Use "generate-prompt" or "process-response"', 400)
     }
@@ -82,15 +82,14 @@ async function handleGeneratePrompt({ sectionId, bookId }: GeneratePromptRequest
     .from('cards')
     .select(`
       *,
-      card_source_references!inner (
+      snippet_chunks_for_context!inner (
         id,
         source_section_id,
         source_snippet_id,
-        char_start,
-        char_end
+        link
       )
     `)
-    .in('card_source_references.source_section_id', [sectionId])
+    .in('snippet_chunks_for_context.source_section_id', [sectionId])
 
   if (existingCardsError) {
     return createErrorResponse('Failed to fetch existing cards')
@@ -98,8 +97,8 @@ async function handleGeneratePrompt({ sectionId, bookId }: GeneratePromptRequest
 
   // Step 4: Get remaining cards that reference multiple sections (for prompt context)
   const remainingCards = existingCards?.filter(card => {
-    const references = card.card_source_references
-    return references.length > 1 || references[0].source_section_id !== sectionId
+    const snippetChunks = card.snippet_chunks_for_context
+    return snippetChunks.length > 1 || snippetChunks[0].source_section_id !== sectionId
   }) || []
 
   // Step 5: Create content batches
@@ -141,9 +140,7 @@ async function handleProcessResponse({ sectionId, bookId, claudeResponse }: Proc
     return createErrorResponse('Invalid AI response: missing or invalid cards array')
   }
 
-  if (!claudeResponse.references || !Array.isArray(claudeResponse.references)) {
-    return createErrorResponse('Invalid AI response: missing or invalid references array')
-  }
+  // snippetChunks are optional now, so we don't validate them
 
   // Save cards to database
   const { data: savedCards, error: cardsError } = await supabaseClient
@@ -159,19 +156,21 @@ async function handleProcessResponse({ sectionId, bookId, claudeResponse }: Proc
     return createErrorResponse('Failed to save cards')
   }
 
-  // Save references to database
-  const referencesWithCardIds = claudeResponse.references.map((ref, index) => ({
-    ...ref,
-    card_id: savedCards[index].id
+  // Create snippet chunks for each card with the conversation link
+  const snippetChunksWithCardIds = savedCards.map((card, index) => ({
+    card_id: card.id,
+    source_section_id: sectionId,
+    source_snippet_id: null, // Will be filled in step 2
+    link: claudeResponse.conversationLink || null
   }))
 
   const { error: refsError } = await supabaseClient
-    .from('card_source_references')
-    .insert(referencesWithCardIds)
+    .from('snippet_chunks_for_context')
+    .insert(snippetChunksWithCardIds)
 
   if (refsError) {
-    console.error('Error saving references:', refsError)
-    return createErrorResponse('Failed to save references')
+    console.error('Error saving snippet chunks:', refsError)
+    return createErrorResponse('Failed to save snippet chunks')
   }
 
   return createSuccessResponse({

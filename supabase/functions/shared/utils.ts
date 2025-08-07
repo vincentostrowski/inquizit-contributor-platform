@@ -50,7 +50,6 @@ Each **concept card** must contain:
 
 1. **Title** – A short, clear phrase capturing the essence of the idea (40-50 characters max).
 2. **Description** – A paraphrased explanation of the concept (100-130 characters max).
-3. **Source References** – A list of **logically precise references** (either line numbers or character spans) from the passage that the concept is derived from or supported by.
 
 ---
 
@@ -77,7 +76,6 @@ Please create concept cards that:
 3. Avoid supporting examples, anecdotes, or background details unless they form the core of a larger idea
 4. Prefer **generalized concepts** over isolated facts
 5. Do NOT duplicate any existing cards listed above
-6. Reference the specific snippet(s) that each card is based on
 
 Return the response in this exact JSON format:
 {
@@ -90,21 +88,10 @@ Return the response in this exact JSON format:
       "card_idea": "Optional additional context",
       "banner": ""
     }
-  ],
-  "references": [
-    {
-      "card_id": 0,
-      "source_section_id": ${sectionId}, // Use the Section ID provided above
-      "source_snippet_id": 123,
-      "char_start": 0,
-      "char_end": 0
-    }
   ]
 }
 
 IMPORTANT: 
-- For each card, set "source_snippet_id" to the ID of the snippet that the card is primarily based on. You can find the snippet IDs in the "Available Snippets" section above.
-- Set "source_section_id" to the Section ID provided above (${sectionId}).
 - The "description" field should contain a paraphrased explanation of the concept, not just a brief description.
 - **Title length:** Keep titles between 40-50 characters for optimal display.
 - **Description length:** Keep descriptions between 100-130 characters for optimal display.

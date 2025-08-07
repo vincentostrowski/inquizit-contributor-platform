@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, createErrorResponse, createSuccessResponse, buildClaudePrompt } from '../shared/utils.ts'
-import { ClaudeResponse } from '../shared/types.ts'
+import { CardGenerationResponse } from '../shared/types.ts'
 
 interface ClaudeApiRequest {
   sectionId: number
@@ -36,7 +36,7 @@ serve(async (req) => {
     await new Promise(resolve => setTimeout(resolve, 2000))
     
     // Mock response - replace with actual Claude API response
-    const claudeResponse: ClaudeResponse = {
+    const claudeResponse: CardGenerationResponse = {
       cards: [
         {
           title: "Sample Card 1",
@@ -55,20 +55,18 @@ serve(async (req) => {
           banner: ""
         }
       ],
-      references: [
+      snippetChunks: [
         {
           card_id: 0,
           source_section_id: 0, // Will be set by caller
           source_snippet_id: null,
-          char_start: 0,
-          char_end: 0
+          link: null
         },
         {
           card_id: 1,
           source_section_id: 0, // Will be set by caller
           source_snippet_id: null,
-          char_start: 0,
-          char_end: 0
+          link: null
         }
       ]
     }

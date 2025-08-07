@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, createErrorResponse, createSuccessResponse, buildClaudePrompt, createContentBatches } from '../shared/utils.ts'
-import { GenerateCardsRequest, ClaudeResponse } from '../shared/types.ts'
+import { GenerateCardsRequest, CardGenerationResponse } from '../shared/types.ts'
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -136,11 +136,13 @@ serve(async (req) => {
         return createErrorResponse(`Failed to generate cards for batch ${batchIndex + 1}`)
       }
 
-      const claudeResponse: ClaudeResponse = claudeData.data
+      const claudeResponse: CardGenerationResponse = claudeData.data
 
-      // Accumulate cards and references from this batch
+      // Accumulate cards and snippet chunks from this batch
       allGeneratedCards.push(...claudeResponse.cards)
-      allGeneratedReferences.push(...claudeResponse.references)
+      if (claudeResponse.snippetChunks) {
+        allGeneratedReferences.push(...claudeResponse.snippetChunks)
+      }
     }
 
     // Step 9: Save all generated cards to database

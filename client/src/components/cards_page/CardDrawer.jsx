@@ -47,22 +47,21 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
         try {
           const sectionIds = getAllSectionIds(sectionWithCompletion);
 
-          // Fetch cards that have source references pointing to the selected section or any of its descendants
+          // Fetch cards that have snippet chunks pointing to the selected section or any of its descendants
           const { data: cardsData, error } = await supabase
             .from('cards')
             .select(`
               *,
-              card_source_references!inner (
+              snippet_chunks_for_context!inner (
                 id,
                 created_at,
                 source_section_id,
                 source_snippet_id,
-                char_start,
-                char_end,
+                link,
                 card_id
               )
             `)
-            .in('card_source_references.source_section_id', sectionIds)
+            .in('snippet_chunks_for_context.source_section_id', sectionIds)
             .order('order', { ascending: true });
 
           if (error) {
@@ -113,7 +112,7 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
 
   const handleCardDelete = async (cardId) => {
     try {
-      // Delete the card (this will cascade to card_source_references due to foreign key)
+      // Delete the card (this will cascade to snippet_chunks_for_context due to foreign key)
       const { error: deleteError } = await supabase
         .from('cards')
         .delete()
@@ -130,17 +129,16 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
         .from('cards')
         .select(`
           *,
-          card_source_references!inner (
+          snippet_chunks_for_context!inner (
             id,
             created_at,
             source_section_id,
             source_snippet_id,
-            char_start,
-            char_end,
+            link,
             card_id
           )
         `)
-        .in('card_source_references.source_section_id', sectionIds)
+        .in('snippet_chunks_for_context.source_section_id', sectionIds)
         .order('order', { ascending: true });
       
       setCards(cardsData || []);
@@ -180,20 +178,19 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
         
         cardId = newCard.id;
         
-        // Create a reference to link the card to this section
-        const { error: referenceError } = await supabase
-          .from('card_source_references')
+        // Create a snippet chunk to link the card to this section
+        const { error: chunkError } = await supabase
+          .from('snippet_chunks_for_context')
           .insert({
             card_id: cardId,
             source_section_id: sectionWithCompletion.id,
             // No snippet_id for manually created cards
-            char_start: 0,
-            char_end: 0
+            link: null
           });
 
-        if (referenceError) {
-          console.error('Error creating card reference:', referenceError);
-          // Optionally delete the card if reference creation fails
+        if (chunkError) {
+          console.error('Error creating snippet chunk:', chunkError);
+          // Optionally delete the card if chunk creation fails
           await supabase.from('cards').delete().eq('id', cardId);
           return;
         }
@@ -228,17 +225,16 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
         .from('cards')
         .select(`
           *,
-          card_source_references!inner (
+          snippet_chunks_for_context!inner (
             id,
             created_at,
             source_section_id,
             source_snippet_id,
-            char_start,
-            char_end,
+            link,
             card_id
           )
         `)
-        .in('card_source_references.source_section_id', sectionIds)
+        .in('snippet_chunks_for_context.source_section_id', sectionIds)
         .order('order', { ascending: true });
       
       setCards(cardsData || []);
@@ -316,17 +312,16 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
         .from('cards')
         .select(`
           *,
-          card_source_references!inner (
+          snippet_chunks_for_context!inner (
             id,
             created_at,
             source_section_id,
             source_snippet_id,
-            char_start,
-            char_end,
+            link,
             card_id
           )
         `)
-        .in('card_source_references.source_section_id', sectionIds)
+        .in('snippet_chunks_for_context.source_section_id', sectionIds)
         .order('order', { ascending: true });
       
       setCards(cardsData || []);
@@ -374,17 +369,16 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
           .from('cards')
           .select(`
             *,
-            card_source_references!inner (
+            snippet_chunks_for_context!inner (
               id,
               created_at,
               source_section_id,
               source_snippet_id,
-              char_start,
-              char_end,
+              link,
               card_id
             )
           `)
-          .in('card_source_references.source_section_id', sectionIds)
+          .in('snippet_chunks_for_context.source_section_id', sectionIds)
           .order('order', { ascending: true });
         
         setCards(cardsData || []);
@@ -493,13 +487,11 @@ const CardDrawer = ({ selectedSection, onUpdateSection, book }) => {
           </div>
         ) : (
           <div className="flex flex-col h-full">
-            <div className="p-6 pr-0">
               <CardGrid 
                 cards={cards} 
                 onCardClick={handleCardClick}
                 onCreateCard={handleCreateCard}
               />
-            </div>
             {cards.length > 0 && !loading && !sectionWithCompletion?.card_set_done && (
               <div className="border-t border-gray-200 flex-1 min-h-0">
                 <ActionsList 
