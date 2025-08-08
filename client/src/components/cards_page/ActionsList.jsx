@@ -99,7 +99,7 @@ const ActionsList = ({ onActionSelect, isBlocked = false, cards = [] }) => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-white rounded-lg border border-gray-200 relative overflow-hidden">
+    <div className="h-full flex flex-col bg-white border border-gray-200 border-l-0 border-t-0 relative overflow-hidden">
       <div className="p-4 border-b border-gray-200">
         <h3 className="text-lg font-semibold text-gray-800">Available Actions</h3>
       </div>
