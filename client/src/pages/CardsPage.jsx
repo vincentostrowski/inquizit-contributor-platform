@@ -541,63 +541,6 @@ const CardsPage = () => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      {selectedSection && (
-        <div className="bg-white border-b border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold text-gray-900">
-              {sectionWithCompletion?.title}
-            </h1>
-            <div className="flex items-center space-x-2">
-              {isSectionReady && (
-                <>
-                  {cards.length === 0 && !loading && (
-                    <button
-                      onClick={handleGenerate}
-                      disabled={generating}
-                      className={`px-3 py-1 rounded-lg transition-colors flex items-center ${
-                        generating 
-                          ? 'bg-gray-400 text-white cursor-not-allowed' 
-                          : 'bg-blue-500 text-white hover:bg-blue-600'
-                      }`}
-                    >
-                      {generating ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          <span>Generating...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Generate</span>
-                          <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                        </>
-                      )}
-                    </button>
-                  )}
-                  {cards.length > 0 && (
-                    <button
-                      onClick={handleToggleCardSetDone}
-                      disabled={!sectionWithCompletion?.card_set_done && !canBeMarkedDone}
-                      className={`px-3 py-1 rounded text-sm transition-colors ${
-                        sectionWithCompletion?.card_set_done
-                          ? 'text-gray-500 hover:text-blue-700'
-                          : canBeMarkedDone
-                            ? 'bg-green-600 text-white hover:bg-green-700'
-                            : 'text-gray-500'
-                      }`}
-                    >
-                      {sectionWithCompletion?.card_set_done ? 'Edit' : (canBeMarkedDone ? 'Confirm' : 'Complete all subsections')}
-                    </button>
-                  )}
-                  
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Top Half - Card Grid Area */}
       <div className="flex-none border-b border-gray-200">
@@ -652,21 +595,39 @@ const CardsPage = () => {
           <div className="w-1/2 overflow-hidden">
             {selectedSection ? (
               <div className="h-full bg-white overflow-y-auto">
-                {cards.length > 0 && !loading && !sectionWithCompletion?.card_set_done ? (
+                {!isSectionReady || loading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="text-gray-500">Complete source content first</div>
+                  </div>
+                ) : cards.length === 0 ? (
                   <ActionsList 
                     onActionSelect={handleActionSelect} 
                     isBlocked={!canBeMarkedDone}
                     cards={cards}
+                    generating={generating}
+                    onGenerate={handleGenerate}
                   />
-                ) : (
+                ) : sectionWithCompletion?.card_set_done ? (
                   <div className="h-full flex items-center justify-center">
-                    <div className="text-gray-500">
-                      {!isSectionReady ? 'Complete source content first' : 
-                       cards.length === 0 ? 'No cards available' : 
-                       sectionWithCompletion?.card_set_done ? 'Card set completed' : 
-                       'Actions will appear here'}
+                    <div className="text-center">
+                      <div className="text-gray-500 mb-2">Card set completed</div>
+                      <button
+                        onClick={handleToggleCardSetDone}
+                        className="text-gray-500 hover:text-blue-700 transition-colors text-sm"
+                      >
+                        Edit
+                      </button>
                     </div>
                   </div>
+                ) : (
+                  <ActionsList 
+                    onActionSelect={handleActionSelect} 
+                    isBlocked={!canBeMarkedDone}
+                    cards={cards}
+                    onConfirm={handleToggleCardSetDone}
+                    canConfirm={canBeMarkedDone}
+                    isConfirmed={sectionWithCompletion?.card_set_done}
+                  />
                 )}
               </div>
             ) : (

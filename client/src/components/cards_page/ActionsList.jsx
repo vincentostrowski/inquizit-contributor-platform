@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const ActionsList = ({ onActionSelect, isBlocked = false, cards = [] }) => {
+const ActionsList = ({ onActionSelect, isBlocked = false, cards = [], generating = false, onGenerate, onConfirm, canConfirm = false, isConfirmed = false }) => {
   const [selectedCards, setSelectedCards] = useState([]);
   const [actionMode, setActionMode] = useState(null);
 
@@ -52,6 +52,11 @@ const ActionsList = ({ onActionSelect, isBlocked = false, cards = [] }) => {
   ];
 
   const handleActionClick = (action) => {
+    if (action.id === 'generate-scratch' && onGenerate) {
+      onGenerate();
+      return;
+    }
+    
     if (action.requiresSelection) {
       setActionMode(action.id);
     } else {
@@ -101,7 +106,22 @@ const ActionsList = ({ onActionSelect, isBlocked = false, cards = [] }) => {
   return (
     <div className="h-full flex flex-col bg-white border border-gray-200 border-l-0 border-t-0 relative overflow-hidden">
       <div className="p-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-800">Available Actions</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-800">Available Actions</h3>
+          {cards.length > 0 && canConfirm && (
+            <button
+              onClick={onConfirm}
+              disabled={isConfirmed}
+              className={`px-3 py-1 rounded text-sm transition-colors ${
+                isConfirmed
+                  ? 'text-gray-500 hover:text-blue-700'
+                  : 'bg-green-600 text-white hover:bg-green-700'
+              }`}
+            >
+              {isConfirmed ? 'Edit' : 'Confirm'}
+            </button>
+          )}
+        </div>
       </div>
       
       <div className="flex-1 overflow-y-auto p-4">
@@ -150,23 +170,29 @@ const ActionsList = ({ onActionSelect, isBlocked = false, cards = [] }) => {
 
         {/* Action Buttons */}
         <div className="space-y-3">
-          {actions.map((action) => (
+          {actions
+            .filter(action => cards.length === 0 ? action.id === 'generate-scratch' : true)
+            .map((action) => (
             <div
               key={action.id}
               onClick={() => handleActionClick(action)}
               className={`p-4 rounded-lg cursor-pointer transition-colors border ${
-                isActionDisabled(action)
+                isActionDisabled(action) || (action.id === 'generate-scratch' && generating)
                   ? 'bg-gray-50 border-gray-200 cursor-not-allowed opacity-50'
                   : 'bg-gray-50 hover:bg-gray-100 border-gray-200 hover:border-gray-300'
               }`}
             >
               <div className="flex items-start space-x-3">
                 <div className="text-2xl flex-shrink-0">
-                  {action.icon}
+                  {action.id === 'generate-scratch' && generating ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                  ) : (
+                    action.icon
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-medium text-gray-900 mb-1">
-                    {action.title}
+                    {action.id === 'generate-scratch' && generating ? 'Generating...' : action.title}
                   </h4>
                   <p className="text-sm text-gray-600">
                     {action.description}
