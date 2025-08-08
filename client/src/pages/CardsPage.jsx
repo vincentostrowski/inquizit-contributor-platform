@@ -220,6 +220,28 @@ const CardsPage = () => {
     setSelectedCard(null);
   };
 
+  // Function to upload banner image to Supabase storage
+  const uploadBanner = async (file, cardId) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${cardId}-banner.${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+      .from('card-banners')
+      .upload(fileName, file);
+      
+    if (error) {
+      console.error('Error uploading banner:', error);
+      throw error;
+    }
+    
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('card-banners')
+      .getPublicUrl(fileName);
+      
+    return publicUrl;
+  };
+
   const handleCardDelete = async (cardId) => {
     try {
       // Delete the card (this will cascade to snippet_chunks_for_context due to foreign key)
@@ -271,6 +293,26 @@ const CardsPage = () => {
         
         cardId = newCard.id;
         
+        // Upload banner if provided
+        if (updatedCard.bannerFile) {
+          try {
+            const bannerUrl = await uploadBanner(updatedCard.bannerFile, cardId);
+            
+            // Update card with banner URL
+            const { error: bannerUpdateError } = await supabase
+              .from('cards')
+              .update({ banner: bannerUrl })
+              .eq('id', cardId);
+              
+            if (bannerUpdateError) {
+              console.error('Error updating card with banner URL:', bannerUpdateError);
+            }
+          } catch (error) {
+            console.error('Error uploading banner:', error);
+            // Continue with card creation even if banner upload fails
+          }
+        }
+        
         // Create a snippet chunk to link the card to this section
         const { error: chunkError } = await supabase
           .from('snippet_chunks_for_context')
@@ -297,6 +339,17 @@ const CardsPage = () => {
           banner: updatedCard.banner || '',
           card_idea: updatedCard.card_idea || ''
         };
+        
+        // Upload banner if provided
+        if (updatedCard.bannerFile) {
+          try {
+            const bannerUrl = await uploadBanner(updatedCard.bannerFile, selectedCard.id);
+            cardData.banner = bannerUrl;
+          } catch (error) {
+            console.error('Error uploading banner:', error);
+            // Continue with card update even if banner upload fails
+          }
+        }
         
         const { error: updateError } = await supabase
           .from('cards')
@@ -648,7 +701,7 @@ const CardsPage = () => {
           </div>
         ) : (
           <div className="h-full bg-white flex items-center justify-center">
-            <div className="text-gray-500">Select a section to view its cards</div>
+            <div className="text-gray-500"></div>
           </div>
         )}
       </div>

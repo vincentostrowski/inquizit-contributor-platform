@@ -12,7 +12,8 @@ const CardTab = ({ formData, handleInputChange, handleGenerate, buildTitlePrompt
         <Card 
           card={{
             title: formData.title || 'Card Title',
-            description: formData.description || 'Card description will appear here...'
+            description: formData.description || 'Card description will appear here...',
+            banner: formData.banner || ''
           }}
         />
       </div>
@@ -159,6 +160,10 @@ const CardTab = ({ formData, handleInputChange, handleGenerate, buildTitlePrompt
               onChange={(e) => {
                 const file = e.target.files[0];
                 if (file) {
+                  // Store the file for upload
+                  handleInputChange('bannerFile', file);
+                  
+                  // Also create a preview URL
                   const reader = new FileReader();
                   reader.onload = (event) => {
                     handleInputChange('banner', event.target.result);
@@ -190,7 +195,10 @@ const CardTab = ({ formData, handleInputChange, handleGenerate, buildTitlePrompt
           {/* Remove Banner Button */}
           {formData.banner && (
             <button
-              onClick={() => handleInputChange('banner', '')}
+              onClick={() => {
+                handleInputChange('banner', '');
+                handleInputChange('bannerFile', null);
+              }}
               className="mt-2 text-sm text-red-600 hover:text-red-700"
             >
               Remove banner

@@ -12,7 +12,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     card_idea: '',
     prompt: '',
     order: '',
-    banner: ''
+    banner: '',
+    bannerFile: null
   });
   const [conversationLink, setConversationLink] = useState('');
   const [showLinkPanel, setShowLinkPanel] = useState(false);
@@ -28,7 +29,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         card_idea: card.card_idea || '',
         prompt: card.prompt || '',
         order: card.order || '',
-        banner: card.banner || ''
+        banner: card.banner || '',
+        bannerFile: null // Reset file when loading existing card
       });
       
       // Set the conversation link from card (either from existing card or from new card with section default)
@@ -135,7 +137,9 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   };
 
   const buildBannerPrompt = () => {
-    let prompt = "Generate a banner image for this concept card. The banner should be visually appealing and relevant to the card's content.";
+    let prompt = "Generate a 16:9 landscape banner image for this concept card. The banner should contain only images/visual elements - no text whatsoever. The style should be visually appealing and relevant to the card's content.";
+    
+    prompt += `\n\nThe style should match the following reference images sent as well / pasted below`;
     
     if (formData.title?.trim()) {
       prompt += `\n\nTitle: ${formData.title}`;
