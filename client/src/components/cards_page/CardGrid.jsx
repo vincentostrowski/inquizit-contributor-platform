@@ -1,4 +1,5 @@
 import React from 'react';
+import { Droppable } from 'react-beautiful-dnd';
 import Card from './Card';
 
 const AddCardPlaceholder = ({ onClick }) => {
@@ -15,7 +16,7 @@ const AddCardPlaceholder = ({ onClick }) => {
   );
 };
 
-const CardGrid = ({ cards, onCardClick, onCreateCard, cardSetDone }) => {
+const CardGrid = ({ cards, onCardClick, onCreateCard, cardSetDone, updatingOrder = false }) => {
   // If no cards and card set is not done, show just the add card placeholder
   if (cards.length === 0 && !cardSetDone) {
     return (
@@ -28,30 +29,62 @@ const CardGrid = ({ cards, onCardClick, onCreateCard, cardSetDone }) => {
   // If card set is done, don't show add card placeholder
   if (cardSetDone) {
     return (
-      <div className="flex gap-6 overflow-x-auto custom-scrollbar p-10">
-        {cards.map((card) => (
-          <Card 
-            key={card.id} 
-            card={card} 
-            onClick={onCardClick}
-          />
-        ))}
-      </div>
+      <Droppable 
+        droppableId="card-grid" 
+        direction="horizontal" 
+        isDropDisabled={updatingOrder} 
+        isCombineEnabled={false}
+        ignoreContainerClipping={false}
+      >
+        {(provided) => (
+          <div 
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className="flex gap-6 overflow-x-auto custom-scrollbar p-10"
+          >
+            {cards.map((card, index) => (
+              <Card 
+                key={card.id} 
+                card={card} 
+                onClick={onCardClick}
+                index={index}
+              />
+            ))}
+            {provided.placeholder}
+          </div>
+        )}
+      </Droppable>
     );
   }
 
   // Normal case: show cards with add card placeholder
   return (
-    <div className="flex gap-6 overflow-x-auto custom-scrollbar p-10">
-      <AddCardPlaceholder onClick={onCreateCard} />
-      {cards.map((card) => (
-        <Card 
-          key={card.id} 
-          card={card} 
-          onClick={onCardClick}
-        />
-      ))}
-    </div>
+    <Droppable 
+      droppableId="card-grid" 
+      direction="horizontal" 
+      isDropDisabled={updatingOrder} 
+      isCombineEnabled={false}
+      ignoreContainerClipping={false}
+    >
+              {(provided) => (
+        <div 
+          ref={provided.innerRef}
+          {...provided.droppableProps}
+          className="flex gap-6 overflow-x-auto custom-scrollbar p-10"
+        >
+          <AddCardPlaceholder onClick={onCreateCard} />
+          {cards.map((card, index) => (
+            <Card 
+              key={card.id} 
+              card={card} 
+              onClick={onCardClick}
+              index={index}
+            />
+          ))}
+          {provided.placeholder}
+        </div>
+      )}
+    </Droppable>
   );
 };
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DragDropContext } from 'react-beautiful-dnd';
 import { supabase } from '../services/supabaseClient';
 import ReadOnlySectionBrowser from '../components/cards_page/ReadOnlySectionBrowser';  
 import CardGrid from '../components/cards_page/CardGrid';
@@ -24,6 +25,7 @@ const CardsPage = () => {
   const [sectionDefaultLink, setSectionDefaultLink] = useState(null);
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [promptData, setPromptData] = useState(null);
+  const [updatingOrder, setUpdatingOrder] = useState(false);
 
   // Fetch selected section data when sectionId changes
   useEffect(() => {
@@ -100,7 +102,8 @@ const CardsPage = () => {
             .from('snippet_chunks_for_context')
             .select('card_id')
             .in('source_section_id', sectionIds)
-        ).data?.map(chunk => chunk.card_id) || []);
+        ).data?.map(chunk => chunk.card_id) || [])
+        .order('order', { ascending: true });
 
       if (error) {
         console.error('Error fetching cards:', error);
@@ -539,7 +542,77 @@ const CardsPage = () => {
     }
   };
 
+  const handleDragEnd = (result) => {
+    // If no destination, nothing to do
+    if (!result.destination) {
+      return;
+    }
+
+    // If dropped in the same position, nothing to do
+    if (result.destination.index === result.source.index) {
+      return;
+    }
+
+    // Calculate new order
+    const newCards = Array.from(cards);
+    const [reorderedCard] = newCards.splice(result.source.index, 1);
+    newCards.splice(result.destination.index, 0, reorderedCard);
+
+    // Update the cards state immediately for UI feedback
+    setCards(newCards);
+
+    // Update database with new order
+    updateCardOrderInDatabase(newCards);
+  };
+
+  // Function to update card order in database
+  const updateCardOrderInDatabase = async (newCards) => {
+    setUpdatingOrder(true);
+    try {
+      // Only update cards whose position actually changed
+      const cardsToUpdate = newCards.filter((card, newIndex) => {
+        const originalCard = cards.find(c => c.id === card.id);
+        const originalIndex = cards.indexOf(originalCard);
+        return originalIndex !== newIndex;
+      });
+
+      if (cardsToUpdate.length === 0) {
+        console.log('No cards need updating');
+        return;
+      }
+
+      // Create batch update operations only for changed cards
+      const updatePromises = cardsToUpdate.map((card, index) => {
+        const newIndex = newCards.indexOf(card);
+        return supabase
+          .from('cards')
+          .update({ order: newIndex + 1 })
+          .eq('id', card.id);
+      });
+
+      // Execute all updates
+      const results = await Promise.all(updatePromises);
+      
+      // Check for any errors
+      const errors = results.filter(result => result.error);
+      if (errors.length > 0) {
+        console.error('Error updating card order:', errors);
+        // Optionally revert the UI state if database update fails
+        // await refreshCardsAndDefaultLink();
+      } else {
+        console.log(`Card order updated successfully in database (${cardsToUpdate.length} cards updated)`);
+      }
+    } catch (error) {
+      console.error('Error updating card order:', error);
+      // Optionally revert the UI state if database update fails
+      // await refreshCardsAndDefaultLink();
+    } finally {
+      setUpdatingOrder(false);
+    }
+  };
+
   return (
+    <DragDropContext onDragEnd={handleDragEnd}>
     <div className="flex flex-col h-full">
 
       {/* Top Half - Card Grid Area */}
@@ -569,6 +642,7 @@ const CardsPage = () => {
                 onCardClick={handleCardClick}
                 onCreateCard={handleCreateCard}
                 cardSetDone={sectionWithCompletion?.card_set_done}
+                updatingOrder={updatingOrder}
               />
             )}
           </div>
@@ -656,6 +730,7 @@ const CardsPage = () => {
         onProcessResponse={handleProcessClaudeResponse}
       />
     </div>
+    </DragDropContext>
   );
 };
 
