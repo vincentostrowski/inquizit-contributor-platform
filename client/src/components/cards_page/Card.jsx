@@ -24,14 +24,23 @@ const Card = ({ card, onClick, index }) => {
           <div className="relative w-full h-full rounded-lg overflow-hidden ring-1 ring-black/5">
             {card.banner ? (
               <>
-                <img
-                  src={card.banner}
-                  alt="Card banner"
-                  className="w-full h-full object-cover saturate-[.92] contrast-[.95]"
-                  loading="lazy"
-                  decoding="async"
-                  draggable={false}
-                />
+                {(() => {
+                  const isDataUrl = typeof card.banner === 'string' && card.banner.startsWith('data:');
+                  const src = isDataUrl
+                    ? card.banner
+                    : `${card.banner}${card.banner.includes('?') ? '&' : '?'}v=${card.updated_at || ''}`;
+                  return (
+                    <img
+                      src={src}
+                      key={src}
+                      alt="Card banner"
+                      className="w-full h-full object-cover saturate-[.92] contrast-[.95]"
+                      loading="lazy"
+                      decoding="async"
+                      draggable={false}
+                    />
+                  );
+                })()}
                 <div className="absolute inset-0 bg-[#F8F5F0]/25" />
               </>
             ) : (

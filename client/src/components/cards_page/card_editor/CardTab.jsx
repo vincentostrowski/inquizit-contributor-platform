@@ -144,11 +144,20 @@ const CardTab = ({ formData, handleInputChange, handleGenerate, buildTitlePrompt
           {/* Banner Preview */}
           {formData.banner && (
             <div className="mb-3">
-              <img 
-                src={formData.banner} 
-                alt="Card banner" 
-                className="w-full h-32 object-cover rounded border border-gray-200"
-              />
+              {(() => {
+                const isDataUrl = typeof formData.banner === 'string' && formData.banner.startsWith('data:');
+                const src = isDataUrl
+                  ? formData.banner
+                  : `${formData.banner}${formData.banner.includes('?') ? '&' : '?'}v=${Date.now()}`;
+                return (
+                  <img
+                    src={src}
+                    key={src}
+                    alt="Card banner"
+                    className="w-full h-32 object-cover rounded border border-gray-200"
+                  />
+                );
+              })()}
             </div>
           )}
           

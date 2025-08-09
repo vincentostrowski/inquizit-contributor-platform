@@ -221,30 +221,49 @@ const CardsPage = () => {
     setSelectedCard(null);
   };
 
-  // Function to upload banner image to Supabase storage
+  // Function to upload banner image to Supabase storage (store by card path)
   const uploadBanner = async (file, cardId) => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${cardId}-banner.${fileExt}`;
-    
-    const { data, error } = await supabase.storage
+    const fileExt = (file.name?.split('.').pop() || 'png').toLowerCase();
+    const path = `cards/${cardId}/banner.${fileExt}`;
+
+    const { error } = await supabase.storage
       .from('card-banners')
-      .upload(fileName, file);
-      
+      .upload(path, file, { upsert: true, contentType: file.type || 'image/png' });
+
     if (error) {
       console.error('Error uploading banner:', error);
       throw error;
     }
-    
+
     // Get public URL
     const { data: { publicUrl } } = supabase.storage
       .from('card-banners')
-      .getPublicUrl(fileName);
-      
+      .getPublicUrl(path);
+
+    console.log('[banner upload] path:', path, 'url:', publicUrl);
+
     return publicUrl;
   };
 
   const handleCardDelete = async (cardId) => {
     try {
+      // Best-effort: delete banner file from storage first
+      try {
+        const card = cards.find(c => c.id === cardId);
+        const bannerUrl = card?.banner;
+        if (bannerUrl) {
+          const cleanOld = bannerUrl.split('?')[0];
+          const marker = '/storage/v1/object/public/card-banners/';
+          const idx = cleanOld.indexOf(marker);
+          if (idx !== -1) {
+            const oldPath = cleanOld.substring(idx + marker.length);
+            await supabase.storage.from('card-banners').remove([oldPath]);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to delete banner from storage on card delete (safe to ignore):', e);
+      }
+
       // Delete the card (this will cascade to snippet_chunks_for_context due to foreign key)
       const { error: deleteError } = await supabase
         .from('cards')
@@ -276,7 +295,6 @@ const CardsPage = () => {
           prompt: updatedCard.prompt || '',
           content: updatedCard.content || '',
           order: updatedCard.order || cards.length + 1,
-          banner: updatedCard.banner || '',
           card_idea: updatedCard.card_idea || '',
           book: currentBook.id
         };
@@ -299,11 +317,13 @@ const CardsPage = () => {
         if (updatedCard.bannerFile) {
           try {
             const bannerUrl = await uploadBanner(updatedCard.bannerFile, cardId);
-            
+            // Version the URL to defeat caches
+            const cleanUrl = bannerUrl.split('?')[0];
+            const versionedUrl = `${cleanUrl}?v=${Date.now()}`;
             // Update card with banner URL
             const { error: bannerUpdateError } = await supabase
               .from('cards')
-              .update({ banner: bannerUrl })
+              .update({ banner: versionedUrl })
               .eq('id', cardId);
               
             if (bannerUpdateError) {
@@ -339,7 +359,6 @@ const CardsPage = () => {
           prompt: updatedCard.prompt || '',
           content: updatedCard.content || '',
           order: updatedCard.order || selectedCard.order,
-          banner: updatedCard.banner || '',
           card_idea: updatedCard.card_idea || ''
         };
         
@@ -347,10 +366,26 @@ const CardsPage = () => {
         if (updatedCard.bannerFile) {
           try {
             const bannerUrl = await uploadBanner(updatedCard.bannerFile, selectedCard.id);
-            cardData.banner = bannerUrl;
+            const cleanUrl = bannerUrl.split('?')[0];
+            const versionedUrl = `${cleanUrl}?v=${Date.now()}`;
+            cardData.banner = versionedUrl;
           } catch (error) {
             console.error('Error uploading banner:', error);
             // Continue with card update even if banner upload fails
+          }
+        } else if (!updatedCard.banner && selectedCard.banner) {
+          // User removed banner: clear DB field and try to delete old file
+          cardData.banner = '';
+          try {
+            const cleanOld = selectedCard.banner.split('?')[0];
+            const marker = '/storage/v1/object/public/card-banners/';
+            const idx = cleanOld.indexOf(marker);
+            if (idx !== -1) {
+              const oldPath = cleanOld.substring(idx + marker.length);
+              await supabase.storage.from('card-banners').remove([oldPath]);
+            }
+          } catch (e) {
+            console.warn('Failed to delete old banner from storage (safe to ignore):', e);
           }
         }
         
@@ -426,6 +461,24 @@ const CardsPage = () => {
       try {
         // Get all card IDs for this section
         const cardIds = cards.map(card => card.id);
+        // Best-effort: delete all banners for these cards from storage
+        try {
+          const paths = cards
+            .map(card => card.banner)
+            .filter(Boolean)
+            .map(url => {
+              const clean = url.split('?')[0];
+              const marker = '/storage/v1/object/public/card-banners/';
+              const idx = clean.indexOf(marker);
+              return idx !== -1 ? clean.substring(idx + marker.length) : null;
+            })
+            .filter(Boolean);
+          if (paths.length > 0) {
+            await supabase.storage.from('card-banners').remove(paths);
+          }
+        } catch (e) {
+          console.warn('Failed to delete some banners during delete-all (safe to ignore):', e);
+        }
         
         if (cardIds.length === 0) {
           console.log('No cards to delete');
