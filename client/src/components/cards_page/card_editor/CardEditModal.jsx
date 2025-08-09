@@ -20,6 +20,11 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   const [showLinkPanel, setShowLinkPanel] = useState(false);
   const [linkInput, setLinkInput] = useState('');
   const [contextPromptCopied, setContextPromptCopied] = useState(false);
+  // JSON panel state
+  const [showJsonPanel, setShowJsonPanel] = useState(false);
+  const [jsonInput, setJsonInput] = useState('');
+  const [jsonCopied, setJsonCopied] = useState(false);
+  const [jsonError, setJsonError] = useState(null);
 
   // Update form data when card changes
   useEffect(() => {
@@ -37,6 +42,11 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       
       // Set the conversation link from card (either from existing card or from new card with section default)
       setConversationLink(card.conversationLink || '');
+
+      // Reset JSON panel input/error when switching cards
+      setJsonInput('');
+      setJsonError(null);
+      setJsonCopied(false);
     }
   }, [card]);
 
@@ -44,6 +54,12 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   useEffect(() => {
     if (!isOpen) {
       setShowLinkPanel(false);
+      setShowJsonPanel(false);
+      // Clear transient panel states on close
+      setJsonInput('');
+      setJsonError(null);
+      setJsonCopied(false);
+      setLinkInput('');
     }
   }, [isOpen]);
 
@@ -72,7 +88,18 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     } else {
       // Panel is closed, open it and pre-fill with current link
       setLinkInput(conversationLink || '');
+      setShowJsonPanel(false);
       setShowLinkPanel(true);
+    }
+  };
+
+  const handleToggleJsonPanel = () => {
+    if (showJsonPanel) {
+      setShowJsonPanel(false);
+    } else {
+      setShowLinkPanel(false);
+      setJsonError(null);
+      setShowJsonPanel(true);
     }
   };
 
@@ -191,6 +218,43 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     }
   };
 
+  // Build JSON from current formData (fields only)
+  const buildCardJson = () => {
+    const exportObj = {
+      title: formData.title || '',
+      description: formData.description || '',
+      card_idea: formData.card_idea || '',
+      prompt: formData.prompt || '',
+      content: formData.content || ''
+    };
+    return JSON.stringify(exportObj, null, 2);
+  };
+
+  // Apply JSON to formData (does not touch conversationLink)
+  const handleApplyJson = () => {
+    setJsonError(null);
+    try {
+      const parsed = JSON.parse(jsonInput);
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        setJsonError('Invalid JSON: expected an object');
+        return;
+      }
+      const allowedKeys = ['title', 'description', 'card_idea', 'prompt', 'content'];
+      const updates = {};
+      for (const key of allowedKeys) {
+        if (Object.prototype.hasOwnProperty.call(parsed, key)) {
+          updates[key] = parsed[key] ?? '';
+        }
+      }
+      setFormData(prev => ({
+        ...prev,
+        ...updates
+      }));
+    } catch (e) {
+      setJsonError('Invalid JSON: ' + (e?.message || 'parse error'));
+    }
+  };
+
 
   const handleSave = () => {
     onSave({
@@ -258,6 +322,48 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
                 </button>
                 
 
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Slide-up JSON Panel */}
+        {showJsonPanel && (
+          <div className="bg-gray-100 border-b border-gray-200 p-6 flex-none">
+            <div className="mb-4">
+              <p className="text-sm text-gray-600">Paste JSON to fill the card fields, or copy JSON of the current fields.</p>
+              {jsonError && <p className="text-sm text-red-600 mt-2">{jsonError}</p>}
+            </div>
+            <div>
+              <div className="flex items-start space-x-2">
+                <textarea
+                  value={jsonInput}
+                  onChange={(e) => setJsonInput(e.target.value)}
+                  placeholder='{"title": "...", "description": "...", "card_idea": "...", "prompt": "...", "content": "...", "banner": "...", "order": 1}'
+                  className="flex-1 p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[92px] resize-y"
+                />
+                <div className="flex flex-col space-y-2">
+                  <button
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(buildCardJson());
+                        setJsonCopied(true);
+                        setTimeout(() => setJsonCopied(false), 2000);
+                      } catch (e) {
+                        setJsonError('Failed to copy JSON');
+                      }
+                    }}
+                    className="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors text-sm whitespace-nowrap"
+                  >
+                    {jsonCopied ? 'Copied' : 'Copy JSON'}
+                  </button>
+                  <button
+                    onClick={handleApplyJson}
+                    disabled={!jsonInput.trim()}
+                    className={`px-3 py-2 rounded transition-colors text-sm whitespace-nowrap ${jsonInput.trim() ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                  >
+                    Apply JSON
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -334,8 +440,20 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
             </button>
           </div>
           
-          {/* Right side buttons - Conversation Link and Close */}
+          {/* Right side buttons - JSON, Conversation Link and Close */}
           <div className="flex items-center px-4 space-x-2">
+            {/* JSON Button */}
+            {card && (
+              <button
+                onClick={handleToggleJsonPanel}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  showJsonPanel ? 'bg-gray-500 text-white hover:bg-gray-600' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'
+                }`}
+                title={showJsonPanel ? 'Close JSON panel' : 'Open JSON panel'}
+              >
+                JSON
+              </button>
+            )}
             {/* Conversation Link Button */}
             {card && (
               conversationLink ? (
