@@ -15,6 +15,7 @@ export interface Card {
   title: string
   description: string
   prompt: string
+  content: string
   order: number
   card_idea: string
   banner: string
@@ -32,6 +33,7 @@ export interface DatabaseCard {
   title: string
   description: string
   prompt: string
+  content: string
   order: number
   card_idea: string
   banner: string

@@ -195,6 +195,7 @@ const CardsPage = () => {
       title: '',
       description: '',
       prompt: '',
+      content: '',
       order: cards.length + 1, // Set order to be after existing cards
       banner: '',
       card_idea: '',
@@ -273,6 +274,7 @@ const CardsPage = () => {
           title: updatedCard.title || '',
           description: updatedCard.description || '',
           prompt: updatedCard.prompt || '',
+          content: updatedCard.content || '',
           order: updatedCard.order || cards.length + 1,
           banner: updatedCard.banner || '',
           card_idea: updatedCard.card_idea || '',
@@ -335,6 +337,7 @@ const CardsPage = () => {
           title: updatedCard.title || '',
           description: updatedCard.description || '',
           prompt: updatedCard.prompt || '',
+          content: updatedCard.content || '',
           order: updatedCard.order || selectedCard.order,
           banner: updatedCard.banner || '',
           card_idea: updatedCard.card_idea || ''

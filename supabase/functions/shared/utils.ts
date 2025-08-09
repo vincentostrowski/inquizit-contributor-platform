@@ -77,6 +77,7 @@ Return the response in this exact JSON format:
       "title": "Card Title", // 40-50 characters max
       "description": "Description of the concept", // 100-130 characters max
       "prompt": "",
+      "content": "",
       "order": 1,
       "card_idea": "Card Idea that gives the purpose of the card",
       "banner": ""

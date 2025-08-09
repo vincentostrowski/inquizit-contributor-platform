@@ -11,6 +11,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     description: '',
     card_idea: '',
     prompt: '',
+    content: '',
     order: '',
     banner: '',
     bannerFile: null
@@ -28,6 +29,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         description: card.description || '',
         card_idea: card.card_idea || '',
         prompt: card.prompt || '',
+        content: card.content || '',
         order: card.order || '',
         banner: card.banner || '',
         bannerFile: null // Reset file when loading existing card
@@ -409,7 +411,13 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
               buildContentPrompt={buildContentPrompt}
             />
           )}
-          {activeTab === 'quizit' && <QuizitTab />}
+          {activeTab === 'quizit' && (
+            <QuizitTab 
+              formData={formData}
+              handleInputChange={handleInputChange}
+              handleGenerate={handleGenerate}
+            />
+          )}
         </div>
 
         {/* Footer */}
