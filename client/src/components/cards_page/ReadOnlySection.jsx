@@ -21,7 +21,8 @@ const ReadOnlySection = ({ section, selectedSectionId, onSelect, level = 0, isSe
     }
   }, [selectedSectionId, shouldBeExpanded, section.id]);
   
-  const hasChildren = section.children && section.children.length > 0;
+  // Subsections disabled in section browser
+  const hasChildren = false;
 
   const handleToggle = (e) => {
     e.stopPropagation();
@@ -64,23 +65,8 @@ const ReadOnlySection = ({ section, selectedSectionId, onSelect, level = 0, isSe
         onClick={handleClick}
       >
         <div className="flex items-center space-x-2 flex-1 min-w-0">
-          {hasChildren ? (
-            <button
-              onClick={handleToggle}
-              className="w-6 h-6 flex items-center justify-center hover:bg-gray-300 rounded transition-colors flex-shrink-0"
-            >
-              <svg 
-                className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          ) : (
-            <div className="w-6 h-6 flex-shrink-0"></div>
-          )}
+          {/* Subsection toggle removed */}
+          <div className="w-6 h-6 flex-shrink-0"></div>
           
           <div className="flex items-center space-x-2 flex-1 min-w-0">
             <span className={`font-medium truncate flex-1 ${
@@ -100,24 +86,7 @@ const ReadOnlySection = ({ section, selectedSectionId, onSelect, level = 0, isSe
         </div>
       </div>
 
-      {/* Children */}
-      {hasChildren && isExpanded && (
-        <div className="mt-2 space-y-2">
-          {section.children.map((child) => {
-            const childIsSelectable = child.sources_done;
-            return (
-              <ReadOnlySection
-                key={child.id}
-                section={child}
-                selectedSectionId={selectedSectionId}
-                onSelect={onSelect}
-                level={level + 1}
-                isSelectable={childIsSelectable}
-              />
-            );
-          })}
-        </div>
-      )}
+      {/* Subsections hidden */}
     </div>
   );
 };

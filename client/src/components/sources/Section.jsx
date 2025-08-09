@@ -24,7 +24,8 @@ const Section = ({ section, selectedSectionId, onSelect, onCreateSubsection, onU
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(section.title);
   const [isHovered, setIsHovered] = useState(false);
-  const hasChildren = section.children && section.children.length > 0;
+  // Subsections disabled in sources page browser
+  const hasChildren = false;
 
   const handleToggle = (e) => {
     e.stopPropagation();
@@ -109,23 +110,8 @@ const Section = ({ section, selectedSectionId, onSelect, onCreateSubsection, onU
         onMouseLeave={() => setIsHovered(false)}
       >
         <div className="flex items-center space-x-2 flex-1 min-w-0">
-          {hasChildren ? (
-            <button
-              onClick={handleToggle}
-              className="w-6 h-6 flex items-center justify-center hover:bg-gray-300 rounded transition-colors flex-shrink-0"
-            >
-              <svg 
-                className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          ) : (
-            <div className="w-6 h-6 flex-shrink-0"></div>
-          )}
+          {/* Subsection toggle removed */}
+          <div className="w-6 h-6 flex-shrink-0"></div>
           
           {isEditing ? (
             <input
@@ -177,42 +163,10 @@ const Section = ({ section, selectedSectionId, onSelect, onCreateSubsection, onU
       </div>
 
       {/* Children */}
-      {hasChildren && isExpanded && (
-        <div className="mt-2 space-y-2">
-          {section.children.map((child) => (
-            <Section
-              key={child.id}
-              section={child}
-              selectedSectionId={selectedSectionId}
-              onSelect={onSelect}
-              onCreateSubsection={onCreateSubsection}
-              onUpdateSection={onUpdateSection}
-              onDeleteSection={onDeleteSection}
-              level={level + 1}
-            />
-          ))}
-        </div>
-      )}
+      {/* Subsections hidden */}
 
       {/* Create Subsection Button - Only show for selected section that is expanded */}
-      {selectedSectionId === section.id && (!hasChildren || isExpanded) && (
-        <div className="mt-2">
-          <button 
-            onClick={handleCreateSubsection}
-            className={`p-3 text-left text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-dashed border-blue-300 ${getIndentClass(level + 1)}`} 
-            style={{ width: `calc(100% - ${(level + 1) * 16}px)` }}
-          >
-            <div className="flex items-center space-x-2">
-              <div className="w-6 h-6 flex items-center justify-center">
-                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </div>
-              <span className="font-medium text-blue-600">Create a Subsection</span>
-            </div>
-          </button>
-        </div>
-      )}
+      {/* Create Subsection button removed */}
     </div>
   );
 };

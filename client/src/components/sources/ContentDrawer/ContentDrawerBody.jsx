@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import TextEditor from './TextEditor';
 import NotesSection from './NotesSection';
-import SubSectionsSection from './SubSectionsSection';
 
 const ContentDrawerBody = ({ selectedSection, sections, onCharacterCountChange }) => {
   const [selectedSnippet, setSelectedSnippet] = useState(null);
@@ -35,7 +34,7 @@ const ContentDrawerBody = ({ selectedSection, sections, onCharacterCountChange }
             onSnippetSelect={handleSnippetSelect}
             onCharacterCountChange={onCharacterCountChange}
           />
-          <SubSectionsSection section={selectedSection} sections={sections} />
+          {/* Subsections removed as per request */}
         </div>
       </div>
     </div>
