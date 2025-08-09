@@ -457,7 +457,31 @@ const CardsPage = () => {
 
   const handleProcessClaudeResponse = async (claudeResponse) => {
     try {
-      // Process the Claude response
+      // 1) Delete existing cards for the selected section before inserting new ones
+      // Reuse the same deletion approach as the "Delete All Cards" action, but scoped to this section
+      if (sectionWithCompletion) {
+        // Filter to cards linked to the current section (not descendants)
+        const cardIdsForSection = cards
+          .filter((card) => Array.isArray(card.snippet_chunks_for_context)
+            ? card.snippet_chunks_for_context.some((chunk) => chunk.source_section_id === sectionWithCompletion.id)
+            : false)
+          .map((card) => card.id);
+
+        if (cardIdsForSection.length > 0) {
+          const { error: deleteBeforeInsertError } = await supabase
+            .from('cards')
+            .delete()
+            .in('id', cardIdsForSection);
+
+          if (deleteBeforeInsertError) {
+            console.error('Error deleting existing cards before processing response:', deleteBeforeInsertError);
+            // Proceeding is risky because we might end up with mixed old/new cards
+            // But we keep going per request; alternatively, we could return here
+          }
+        }
+      }
+
+      // 2) Process the Claude response to insert new cards
       const { data, error } = await supabase.functions.invoke('generate-prompt', {
         body: {
           action: 'process-response',
@@ -472,7 +496,7 @@ const CardsPage = () => {
         return;
       }
       
-      // Refresh cards list
+      // 3) Refresh cards list
       await refreshCardsAndDefaultLink();
       setShowPromptModal(false);
       setPromptData(null);
@@ -751,6 +775,8 @@ const CardsPage = () => {
                     onActionSelect={handleActionSelect} 
                     isBlocked={!canBeMarkedDone}
                     cards={cards}
+                    generating={generating}
+                    onGenerate={handleGenerate}
                     onConfirm={handleToggleCardSetDone}
                     canConfirm={canBeMarkedDone}
                     isConfirmed={sectionWithCompletion?.card_set_done}

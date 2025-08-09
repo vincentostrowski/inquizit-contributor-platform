@@ -44,12 +44,11 @@ ${existingCards.map(card => `- ${card.title}: ${card.description}`).join('\n')}`
 
   return `You will be provided with a passage of non-fiction text. Your task is to extract the **core ideas** that the passage is **centered around** — not every idea mentioned.
 
-Section ID: ${sectionId}
-
 Each **concept card** must contain:
 
 1. **Title** – A short, clear phrase capturing the essence of the idea (40-50 characters max).
 2. **Description** – A paraphrased explanation of the concept (100-130 characters max).
+3. **Card Idea** – A short, clear phrase capturing the essence of the idea (multiple sentences to give more context).
 
 ---
 
@@ -62,11 +61,6 @@ Each **concept card** must contain:
 
 ---
 
-Section: ${sectionTitle}${batchContext}
-
-Available Snippets:
-${snippetRefs}
-
 Content:
 ${sectionContent}${existingCardsContext}
 
@@ -75,7 +69,6 @@ Please create concept cards that:
 2. Focus on **main ideas** that are emphasized, developed, or repeated
 3. Avoid supporting examples, anecdotes, or background details unless they form the core of a larger idea
 4. Prefer **generalized concepts** over isolated facts
-5. Do NOT duplicate any existing cards listed above
 
 Return the response in this exact JSON format:
 {
@@ -85,17 +78,15 @@ Return the response in this exact JSON format:
       "description": "Description of the concept", // 100-130 characters max
       "prompt": "",
       "order": 1,
-      "card_idea": "Optional additional context",
+      "card_idea": "Card Idea that gives the purpose of the card",
       "banner": ""
     }
   ]
 }
 
-IMPORTANT: 
-- The "description" field should contain a paraphrased explanation of the concept, not just a brief description.
+IMPORTANT:
 - **Title length:** Keep titles between 40-50 characters for optimal display.
-- **Description length:** Keep descriptions between 100-130 characters for optimal display.
-- Focus on extracting the **core ideas** that the passage is centered around, not every detail mentioned.`
+- **Description length:** Keep descriptions between 100-130 characters for optimal display.`
 }
 
 export function createContentBatches(snippets: any[], maxChars: number = 95000): { content: string[], snippets: any[] }[] {

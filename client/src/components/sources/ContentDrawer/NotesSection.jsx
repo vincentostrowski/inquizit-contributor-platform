@@ -153,6 +153,8 @@ const NotesSection = ({ section, selectedSnippet, onSnippetSelect, onCharacterCo
     }
   };
 
+  const isDone = section?.sources_done || false;
+
   return (
     <div className="space-y-2">
       <h3 className="text-sm font-medium text-gray-700 mb-2">Notes</h3>
@@ -193,18 +195,20 @@ const NotesSection = ({ section, selectedSnippet, onSnippetSelect, onCharacterCo
         </div>
       ))}
 
-      {/* Add New Snippet Button */}
-      <button 
-        onClick={handleCreateSnippet}
-        className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-colors"
-      >
-        <div className="flex items-center justify-center space-x-2">
-          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          <span className="text-gray-600 text-sm font-medium">Add another body of text</span>
-        </div>
-      </button>
+      {/* Add New Snippet Button - hidden when section is marked done */}
+      {!isDone && (
+        <button 
+          onClick={handleCreateSnippet}
+          className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center justify-center space-x-2">
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="text-gray-600 text-sm font-medium">Add another body of text</span>
+          </div>
+        </button>
+      )}
     </div>
   );
 };
