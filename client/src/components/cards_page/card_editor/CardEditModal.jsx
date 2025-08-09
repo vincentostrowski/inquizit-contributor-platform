@@ -20,6 +20,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   const [showLinkPanel, setShowLinkPanel] = useState(false);
   const [linkInput, setLinkInput] = useState('');
   const [contextPromptCopied, setContextPromptCopied] = useState(false);
+  const [pendingPromptTests, setPendingPromptTests] = useState(null);
   // JSON panel state
   const [showJsonPanel, setShowJsonPanel] = useState(false);
   const [jsonInput, setJsonInput] = useState('');
@@ -47,6 +48,66 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       setJsonInput('');
       setJsonError(null);
       setJsonCopied(false);
+
+      // Immediately clear drafts to prevent stale display while loading
+      setPendingPromptTests(null);
+
+      // Load persisted quizit tests for the saved prompt (if existing card)
+      (async () => {
+        try {
+          if (!card.id || !card.prompt) {
+            setPendingPromptTests(null);
+            return;
+          }
+          const sha256 = async (text) => {
+            const input = text || '';
+            try {
+              if (window?.crypto?.subtle) {
+                const data = new TextEncoder().encode(input);
+                const buf = await window.crypto.subtle.digest('SHA-256', data);
+                return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+              }
+              throw new Error('subtle crypto unavailable');
+            } catch {
+              let hash = 5381;
+              for (let i = 0; i < input.length; i += 1) {
+                hash = ((hash << 5) + hash) + input.charCodeAt(i);
+                hash |= 0;
+              }
+              return (hash >>> 0).toString(16).padStart(8, '0');
+            }
+          };
+
+          const promptHash = await sha256(card.prompt || '');
+          const { data, error } = await supabase
+            .from('card_prompt_tests')
+            .select('slot, quizit, reasoning, feedback, confirmed')
+            .eq('card_id', card.id)
+            .eq('prompt_hash', promptHash)
+            .order('slot', { ascending: true });
+
+          if (error) {
+            console.error('Failed to load prompt tests:', error);
+            setPendingPromptTests(null);
+            return;
+          }
+
+          const slots = { 0:{},1:{},2:{},3:{},4:{} };
+          (data || []).forEach(row => {
+            slots[row.slot] = {
+              quizit: row.quizit || '',
+              reasoning: row.reasoning || '',
+              feedback: row.feedback || '',
+              isTested: !!(row.quizit || row.reasoning),
+              confirmed: !!row.confirmed
+            };
+          });
+          setPendingPromptTests({ promptHash, slots });
+        } catch (e) {
+          console.error('Unexpected error loading prompt tests:', e);
+          setPendingPromptTests(null);
+        }
+      })();
     }
   }, [card]);
 
@@ -60,6 +121,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       setJsonError(null);
       setJsonCopied(false);
       setLinkInput('');
+      // Clear any pending quizit drafts to avoid stale hydration on next open
+      setPendingPromptTests(null);
     }
   }, [isOpen]);
 
@@ -71,8 +134,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   };
 
   const handleGenerate = (field) => {
-    // Mock generation - replace with actual AI call
-    console.log(`Generating ${field}...`);
+    // Placeholder for future AI generation
   };
 
   const handleLinkClick = (link) => {
@@ -207,7 +269,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     try {
       await navigator.clipboard.writeText(prompt);
       setCopiedPrompt(promptType);
-      console.log(`${promptType} prompt copied to clipboard`);
+      // prompt copied
       
       // Reset the copied state after 2 seconds
       setTimeout(() => {
@@ -259,7 +321,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   const handleSave = () => {
     onSave({
       ...formData,
-      conversationLink: conversationLink
+      conversationLink: conversationLink,
+      pendingPromptTests
     });
     setShowLinkPanel(false); // Reset panel state
     onClose();
@@ -356,13 +419,13 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
                   >
                     {jsonCopied ? 'Copied' : 'Copy JSON'}
                   </button>
-                  <button
+        <button
                     onClick={handleApplyJson}
                     disabled={!jsonInput.trim()}
                     className={`px-3 py-2 rounded transition-colors text-sm whitespace-nowrap ${jsonInput.trim() ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-                  >
+        >
                     Apply JSON
-                  </button>
+        </button>
                 </div>
               </div>
             </div>
@@ -374,22 +437,22 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         {/* Card Idea Section - Left Side */}
         <div className="w-80 bg-white rounded-l-lg flex flex-col border-r border-gray-200">
           <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center space-x-2 mb-2">
+          <div className="flex items-center space-x-2 mb-2">
               <label className="font-medium text-sm">Card Idea</label>
-              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Optional</span>
-            </div>
-            <p className="text-xs text-gray-600 mb-3">
+            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Optional</span>
+          </div>
+          <p className="text-xs text-gray-600 mb-3">
               Additional context and direction included in the prompts to help generate better titles, descriptions, banners, and other card content.
-            </p>
+          </p>
           </div>
           
           <div className="flex-1 p-4 flex flex-col">
-            <textarea
-              value={formData.card_idea}
-              onChange={(e) => handleInputChange('card_idea', e.target.value)}
+          <textarea
+            value={formData.card_idea}
+            onChange={(e) => handleInputChange('card_idea', e.target.value)}
               className="flex-1 w-full p-3 border border-gray-300 rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-              placeholder="Enter additional context, direction, or clarification..."
-            />
+            placeholder="Enter additional context, direction, or clarification..."
+          />
           </div>
         </div>
 
@@ -534,6 +597,10 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
               formData={formData}
               handleInputChange={handleInputChange}
               handleGenerate={handleGenerate}
+              savedPrompt={card?.prompt || ''}
+              cardId={card?.id}
+              drafts={pendingPromptTests}
+              onTestsDraftChange={setPendingPromptTests}
             />
           )}
         </div>
@@ -565,7 +632,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
             </button>
           </div>
         </div>
-        </div>
+          </div>
         </div>
       </div>
     </div>

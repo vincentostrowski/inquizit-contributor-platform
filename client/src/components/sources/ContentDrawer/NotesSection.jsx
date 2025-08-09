@@ -17,7 +17,6 @@ const NotesSection = ({ section, selectedSnippet, onSnippetSelect, onCharacterCo
         if (data) {
           // If no snippets exist, create one empty snippet
           if (data.length === 0) {
-            console.log('Creating empty snippet for section:', section.id);
             const { data: newSnippet, error: createError } = await supabase
               .from('source_snippets')
               .insert({

@@ -38,7 +38,7 @@ serve(async (req) => {
 })
 
 async function handleGeneratePrompt({ sectionId, bookId }: GeneratePromptRequest, req: Request) {
-  console.log('handleGeneratePrompt called with:', { sectionId, bookId });
+  // debug removed
   
   // Initialize Supabase client
   const supabaseClient = createClient(
@@ -52,14 +52,14 @@ async function handleGeneratePrompt({ sectionId, bookId }: GeneratePromptRequest
   )
 
   // Step 1: Fetch section data
-  console.log('Fetching section data for ID:', sectionId);
+  // debug removed
   const { data: section, error: sectionError } = await supabaseClient
     .from('source_sections')
     .select('*')
     .eq('id', sectionId)
     .single()
 
-  console.log('Section fetch result:', { section, sectionError });
+  // debug removed
 
   if (sectionError || !section) {
     console.error('Section not found:', sectionError);

@@ -67,7 +67,7 @@ const TextEditor = ({ section, selectedSnippet, onSnippetSelect }) => {
   useEffect(() => {
     if (hasChanges && selectedSnippet) {
       setSaveStatus('unsaved');
-      console.log('Auto-saving...');
+      // debug removed
       const timer = setTimeout(() => {
         performSave();
       }, 2000);

@@ -30,7 +30,7 @@ serve(async (req) => {
 
     // TODO: Replace with actual Claude API call
     // For now, return mock data
-    console.log('Claude API call would be made with prompt:', prompt)
+    // debug removed
     
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 2000))

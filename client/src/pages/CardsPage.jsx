@@ -240,7 +240,7 @@ const CardsPage = () => {
       .from('card-banners')
       .getPublicUrl(path);
 
-    console.log('[banner upload] path:', path, 'url:', publicUrl);
+    // console debug removed
 
     return publicUrl;
   };
@@ -438,6 +438,37 @@ const CardsPage = () => {
         }
       }
 
+      // Persist quizit tests only on Save, if any are present
+      const drafts = updatedCard?.pendingPromptTests;
+      if (cardId && drafts && drafts.promptHash) {
+        const rows = [0,1,2,3,4]
+          .map((slot) => {
+            const s = drafts.slots?.[slot];
+            if (!s) return null;
+            const hasContent = (s.quizit?.trim() || s.reasoning?.trim() || s.feedback?.trim());
+            if (!hasContent && !s.isTested && !s.confirmed) return null;
+            return {
+              card_id: cardId,
+              slot,
+              prompt_hash: drafts.promptHash,
+              quizit: s.quizit || '',
+              reasoning: s.reasoning || '',
+              feedback: s.feedback || '',
+              confirmed: !!s.confirmed
+            };
+          })
+          .filter(Boolean);
+
+        if (rows.length > 0) {
+          const { error: upsertError } = await supabase
+            .from('card_prompt_tests')
+            .upsert(rows, { onConflict: 'card_id,slot,prompt_hash' });
+          if (upsertError) {
+            console.error('Error upserting prompt tests:', upsertError);
+          }
+        }
+      }
+
       // Refresh cards and section default link
       await refreshCardsAndDefaultLink();
       
@@ -450,7 +481,6 @@ const CardsPage = () => {
   };
 
   const handleActionSelect = async (action) => {
-    console.log('Action selected:', action);
     
     if (action.id === 'delete-all') {
       // Confirm deletion
@@ -481,7 +511,6 @@ const CardsPage = () => {
         }
         
         if (cardIds.length === 0) {
-          console.log('No cards to delete');
           return;
         }
         
@@ -507,7 +536,6 @@ const CardsPage = () => {
       }
     } else {
       // TODO: Implement other actions
-      console.log('Action not implemented yet:', action.id);
     }
   };
 
@@ -565,17 +593,13 @@ const CardsPage = () => {
   const handleGenerate = async () => {
     if (!sectionWithCompletion || generating) return;
     
-    console.log('Starting generate process...', {
-      sectionId: sectionWithCompletion.id,
-      bookId: currentBook.id,
-      sectionTitle: sectionWithCompletion.title
-    });
+    // debug removed
     
     setGenerating(true);
     
     try {
       // Step 1: Generate prompts
-      console.log('Calling generate-prompt function...');
+      // debug removed
       const { data, error } = await supabase.functions.invoke('generate-prompt', {
         body: {
           action: 'generate-prompt',
@@ -584,7 +608,7 @@ const CardsPage = () => {
         }
       });
       
-      console.log('Function response:', { data, error });
+      // debug removed
       
       if (error) {
         console.error('Error generating prompts:', error);
@@ -593,7 +617,7 @@ const CardsPage = () => {
       }
       
       // Step 2: Show prompts to user
-      console.log('Setting prompt data:', data);
+      // debug removed
       setPromptData(data.data || data); // Handle both nested and direct data
       setShowPromptModal(true);
       
@@ -710,7 +734,6 @@ const CardsPage = () => {
       });
 
       if (cardsToUpdate.length === 0) {
-        console.log('No cards need updating');
         return;
       }
 
@@ -733,7 +756,7 @@ const CardsPage = () => {
         // Optionally revert the UI state if database update fails
         // await refreshCardsAndDefaultLink();
       } else {
-        console.log(`Card order updated successfully in database (${cardsToUpdate.length} cards updated)`);
+        // updated successfully
       }
     } catch (error) {
       console.error('Error updating card order:', error);

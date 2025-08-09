@@ -117,7 +117,7 @@ serve(async (req) => {
       const batch = contentBatches[batchIndex]
       const batchContent = batch.join('\n\n')
       
-      console.log(`Processing batch ${batchIndex + 1} of ${contentBatches.length} (${batchContent.length} characters)`)
+      // debug removed
 
       // Call Claude API function for this batch
       const { data: claudeData, error: claudeError } = await supabaseClient.functions.invoke('claude-api', {
