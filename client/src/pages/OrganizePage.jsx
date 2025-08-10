@@ -4,6 +4,7 @@ import { useSections } from '../hooks/useSections';
 import { useUrlState } from '../hooks/useUrlState';
 import { supabase } from '../services/supabaseClient';
 import OrganizeLeftPanel from '../components/organize/OrganizeLeftPanel';
+import OrganizeRightPanel from '../components/organize/OrganizeRightPanel';
 
 const Organize = () => {
   const { currentBook } = useBook();
@@ -41,10 +42,9 @@ const Organize = () => {
         <OrganizeLeftPanel sections={sections} />
       </div>
       
-      {/* Right Half - New Organization (placeholder for now) */}
-      <div className="w-1/2 p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">New Organization</h2>
-        <p className="text-gray-500">Right panel coming soon...</p>
+      {/* Right Half - New Organization */}
+      <div className="w-1/2 overflow-hidden">
+        <OrganizeRightPanel sections={sections} />
       </div>
     </div>
   );
