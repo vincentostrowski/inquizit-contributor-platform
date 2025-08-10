@@ -608,8 +608,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         {/* Footer */}
         <div className="p-4 border-t border-gray-300 flex justify-between">
           <div className="flex space-x-3">
-            {/* Delete button - only show for existing cards */}
-            {card?.id && (
+            {/* Delete button - only show for existing cards and when section card set is not complete */}
+            {card?.id && !selectedSection?.card_set_done && (
               <button
                 onClick={handleDelete}
                 className="px-6 py-2 border border-red-300 text-red-600 rounded hover:bg-red-50 transition-colors"
