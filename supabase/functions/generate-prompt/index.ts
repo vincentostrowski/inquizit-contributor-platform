@@ -147,7 +147,8 @@ async function handleProcessResponse({ sectionId, bookId, claudeResponse }: Proc
     .from('cards')
     .insert(claudeResponse.cards.map(card => ({
       ...card,
-      book: bookId
+      book: bookId,
+      source_section: sectionId
     })))
     .select()
 

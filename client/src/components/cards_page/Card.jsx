@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Draggable } from 'react-beautiful-dnd';
 
-const Card = ({ card, onClick, index }) => {
+const Card = ({ card, onClick, index, onDragStart, onDragEnd, showRemoveButton, onRemove, sectionId }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   if (!card) return null;
 
@@ -14,13 +15,41 @@ const Card = ({ card, onClick, index }) => {
         if (!isDragging) {
           onClick?.(card);
         }
-        setIsDragging(false);
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      draggable={!!onDragStart} // Make draggable if onDragStart is provided
+      onDragStart={(e) => {
+        if (onDragStart) {
+          setIsDragging(true);
+          onDragStart(card);
+          e.dataTransfer.effectAllowed = 'move';
+        }
+      }}
+      onDragEnd={(e) => {
+        if (onDragEnd) {
+          setIsDragging(false);
+          onDragEnd(e);
+        }
       }}
       {...dragHandlers}
     >
       <div className="flex flex-col h-full">
         {/* Banner */}
         <div className="rounded-t-2xl h-24 flex-shrink-0 p-3">
+          {/* Remove Button - Only show when hovering and showRemoveButton is true */}
+          {showRemoveButton && isHovered && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent card click
+                onRemove?.(sectionId, card.id);
+              }}
+              className="absolute top-2 right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-sm font-bold z-10 transition-colors"
+              title="Remove card from section"
+            >
+              ×
+            </button>
+          )}
           <div className="relative w-full h-full rounded-lg overflow-hidden ring-1 ring-black/5">
             {card.banner ? (
               <>

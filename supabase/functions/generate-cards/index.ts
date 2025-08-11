@@ -145,15 +145,16 @@ serve(async (req) => {
       }
     }
 
-    // Step 9: Save all generated cards to database
-    if (allGeneratedCards.length > 0) {
-      const { data: savedCards, error: cardsError } = await supabaseClient
-        .from('cards')
-        .insert(allGeneratedCards.map(card => ({
-          ...card,
-          book: bookId
-        })))
-        .select()
+          // Step 9: Save all generated cards to database
+      if (allGeneratedCards.length > 0) {
+        const { data: savedCards, error: cardsError } = await supabaseClient
+          .from('cards')
+          .insert(allGeneratedCards.map(card => ({
+            ...card,
+            book: bookId,
+            source_section: sectionId
+          })))
+          .select()
 
       if (cardsError) {
         console.error('Error saving cards:', cardsError)

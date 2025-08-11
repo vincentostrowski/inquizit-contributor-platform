@@ -296,7 +296,8 @@ const CardsPage = () => {
           content: updatedCard.content || '',
           order: updatedCard.order || cards.length + 1,
           card_idea: updatedCard.card_idea || '',
-          book: currentBook.id
+          book: currentBook.id,
+          source_section: sectionWithCompletion.id
         };
         
         // Insert new card

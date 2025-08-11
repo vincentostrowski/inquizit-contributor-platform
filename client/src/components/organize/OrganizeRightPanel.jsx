@@ -1,19 +1,30 @@
 import React, { useState, useEffect } from 'react';
+import { Droppable } from 'react-beautiful-dnd';
 import Card from '../cards_page/Card';
 import OrganizeGenerateModal from './OrganizeGenerateModal';
-import { useCardSections } from '../../hooks/useCardSections';
 import { useBook } from '../../context/BookContext';
 
-const OrganizeRightPanel = ({ sections, onCardDrop }) => {
+const OrganizeRightPanel = ({ 
+  organizeState, 
+  updateOrganizeState, 
+  addPendingCardMove,
+  addPendingSectionCreation,
+  addPendingSectionChange,
+  addPendingSectionDeletion,
+  loadInitialData,
+  handleSave,
+  sourceSections,
+  removeCardFromSection
+}) => {
   const { currentBook } = useBook();
   const { 
-    cardSections, 
-    loading, 
-    error, 
-    createCardSection, 
-    updateCardSection, 
-    deleteCardSection 
-  } = useCardSections(currentBook);
+    destinationSections, 
+    organizedCards,
+    pendingSectionCreations,
+    pendingSectionChanges,
+    pendingSectionDeletions,
+    pendingCardMoves
+  } = organizeState;
 
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [bookCards, setBookCards] = useState([]);
@@ -22,99 +33,116 @@ const OrganizeRightPanel = ({ sections, onCardDrop }) => {
   const [editingTitle, setEditingTitle] = useState(null);
   const [editingTitleValue, setEditingTitleValue] = useState('');
   
-  // Local state for tracking changes
-  const [localSections, setLocalSections] = useState([]);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [deletedSections, setDeletedSections] = useState(new Set());
+  // Combine existing sections with pending changes for display
+  const displaySections = React.useMemo(() => {
+    const combined = [...destinationSections];
+    
+    // Add pending section creations
+    pendingSectionCreations.forEach(pendingSection => {
+      if (!combined.find(s => s.id === pendingSection.tempId)) {
+        combined.push({
+          ...pendingSection,
+          id: pendingSection.tempId,
+          cards: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      }
+    });
+    
+    // Apply pending section changes
+    pendingSectionChanges.forEach(change => {
+      const sectionIndex = combined.findIndex(s => s.id === change.sectionId);
+      if (sectionIndex !== -1) {
+        combined[sectionIndex] = { ...combined[sectionIndex], ...change.changes };
+      }
+    });
+    
+    // Remove deleted sections
+    return combined.filter(section => !pendingSectionDeletions.includes(section.id));
+  }, [destinationSections, pendingSectionCreations, pendingSectionChanges, pendingSectionDeletions]);
 
-  // Initialize local sections when cardSections changes
+  // Initialize expanded sections when destinationSections changes
   useEffect(() => {
-    if (cardSections && cardSections.length > 0) {
-      setLocalSections([...cardSections]);
+    if (destinationSections && destinationSections.length > 0) {
       // Show details for all sections by default
-      setExpandedSections(new Set(cardSections.map(section => section.id)));
+      setExpandedSections(new Set(destinationSections.map(section => section.id)));
     }
-  }, [cardSections]);
-
-  const markAsChanged = () => {
-    setHasUnsavedChanges(true);
-  };
+  }, [destinationSections]);
 
   const updateLocalSection = (sectionId, updates) => {
-    setLocalSections(prev => 
-      prev.map(section => 
-        section.id === sectionId 
-          ? { ...section, ...updates }
-          : section
-      )
-    );
-    markAsChanged();
+    // Add to pending changes in global state
+    addPendingSectionChange(sectionId, updates);
   };
 
   const deleteLocalSection = (sectionId) => {
-    setDeletedSections(prev => new Set([...prev, sectionId]));
-    setLocalSections(prev => prev.filter(section => section.id !== sectionId));
-    markAsChanged();
+    // Add to pending deletions in global state
+    addPendingSectionDeletion(sectionId);
+    
+    // Immediately update UI state to show cards back on the left
+    const sectionCards = organizeState.organizedCards[sectionId] || [];
+    
+    // Move cards back to unorganized state in the UI
+    const newUnorganizedCards = { ...organizeState.unorganizedCards };
+    const newOrganizedCards = { ...organizeState.organizedCards };
+    
+    // Remove cards from organized state
+    delete newOrganizedCards[sectionId];
+    
+    // Add cards back to their original source sections
+    sectionCards.forEach(card => {
+      // Use the card's source_section directly - no complex lookup needed!
+      const targetSourceSection = sourceSections.find(s => s.id === card.source_section);
+      
+      // If we can't find the source section, use the first available one as fallback
+      if (!targetSourceSection) {
+        targetSourceSection = sourceSections[0];
+      }
+      
+      if (targetSourceSection) {
+        if (!newUnorganizedCards[targetSourceSection.id]) {
+          newUnorganizedCards[targetSourceSection.id] = [];
+        }
+        
+        // Insert card at its original position based on the 'order' field
+        const targetCards = newUnorganizedCards[targetSourceSection.id];
+        const originalOrder = card.order || 0;
+        
+        // Find the correct insertion position
+        let insertIndex = targetCards.length; // Default to end
+        
+        for (let i = 0; i < targetCards.length; i++) {
+          if (targetCards[i].order > originalOrder) {
+            insertIndex = i;
+            break;
+          }
+        }
+        
+        // Insert card at the correct position
+        targetCards.splice(insertIndex, 0, {
+          ...card,
+          section: null,
+          final_order: null
+        });
+      }
+    });
+    
+    // Update the state
+    updateOrganizeState({
+      unorganizedCards: newUnorganizedCards,
+      organizedCards: newOrganizedCards
+    });
   };
 
   const addLocalSection = (newSection) => {
-    setLocalSections(prev => [...prev, newSection]);
+    // Add to pending creations in global state
+    addPendingSectionCreation(newSection);
     // Automatically expand the new section
-    setExpandedSections(prev => new Set([...prev, newSection.id]));
-    markAsChanged();
-  };
-
-  const handleSave = async () => {
-    try {
-      // Process deletions first
-      for (const sectionId of deletedSections) {
-        await deleteCardSection(sectionId);
-      }
-
-      // Process updates and creations
-      for (const section of localSections) {
-        if (section.id.startsWith('temp-')) {
-          // This is a new section, create it
-          await createCardSection(section.title);
-        } else if (deletedSections.has(section.id)) {
-          // Skip deleted sections
-          continue;
-        } else {
-          // This is an existing section, check if it needs updating
-          const originalSection = cardSections.find(s => s.id === section.id);
-          if (originalSection) {
-            const hasChanges = 
-              originalSection.title !== section.title ||
-              originalSection.description !== section.description;
-            
-            if (hasChanges) {
-              await updateCardSection(section.id, {
-                title: section.title,
-                description: section.description
-              });
-            }
-          }
-        }
-      }
-
-      // Reset local state
-      setDeletedSections(new Set());
-      setHasUnsavedChanges(false);
-      
-      // Refresh the component to get updated data from parent
-      // This will trigger the useEffect and reset localSections
-      
-    } catch (error) {
-      console.error('Error saving changes:', error);
-      // You could show an error message to the user here
-    }
+    setExpandedSections(prev => new Set([...prev, newSection.tempId || newSection.id]));
   };
 
   const handleCancel = () => {
-    // Reset local state back to original
-    setLocalSections([...cardSections]);
-    setDeletedSections(new Set());
-    setHasUnsavedChanges(false);
+    // Reset editing state
     setEditingTitle(null);
     setEditingTitleValue('');
     setExpandedSections(new Set());
@@ -158,22 +186,18 @@ const OrganizeRightPanel = ({ sections, onCardDrop }) => {
     }
   };
 
-  const handleCreateCategory = async () => {
+  const handleCreateCategory = () => {
     const newSection = {
-      id: `temp-${Date.now()}`, // Temporary ID for local state
-      title: `New Section ${localSections.length + 1}`,
-      description: '',
-      cards: [],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      title: `New Section ${displaySections.length + 1}`,
+      description: ''
     };
     
-    addLocalSection(newSection);
+    addPendingSectionCreation(newSection);
   };
 
   const handleGenerate = () => {
     // Collect all cards from the book's sections
-    const allBookCards = sections.flatMap(section => 
+    const allBookCards = destinationSections.flatMap(section => 
       section.cards?.map(card => ({
         id: card.id,
         title: card.title,
@@ -188,8 +212,6 @@ const OrganizeRightPanel = ({ sections, onCardDrop }) => {
 
   const handleProcessAIResponse = async (aiResponse) => {
     try {
-      console.log('Processing AI response:', aiResponse);
-      
       // Here you would process the AI response to create new categories
       // For now, we'll just log it and close the modal
       
@@ -208,7 +230,6 @@ const OrganizeRightPanel = ({ sections, onCardDrop }) => {
   const handleCardDrop = (categoryId, card) => {
     // Add the card to the specified category
     // This will need to be updated to actually save to the database
-    console.log('Card dropped:', card, 'into section:', categoryId);
     
     // Notify parent component if callback provided
     if (onCardDrop) {
@@ -220,23 +241,7 @@ const OrganizeRightPanel = ({ sections, onCardDrop }) => {
     updateLocalSection(sectionId, { description: newDescription });
   };
 
-  // Show error if there's one
-  if (error) {
-    return (
-      <div className="h-full flex flex-col">
-        <div className="bg-white border-b border-gray-200 p-4">
-          <h2 className="text-xl font-semibold text-gray-800">Final Sections</h2>
-        </div>
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="text-center py-12 text-red-400">
-            <div className="text-4xl mb-4">⚠️</div>
-            <p className="text-lg font-medium mb-2">Error loading sections</p>
-            <p className="text-sm">{error}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // No error handling needed - errors are handled in the parent component
 
   return (
     <div className="h-full flex flex-col">
@@ -245,50 +250,75 @@ const OrganizeRightPanel = ({ sections, onCardDrop }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-semibold text-gray-800 leading-none">Final Sections</h2>
-            {hasUnsavedChanges && (
+            {(pendingCardMoves.length > 0 || 
+              pendingSectionCreations.length > 0 || 
+              pendingSectionChanges.length > 0 || 
+              pendingSectionDeletions.length > 0) && (
               <span className="text-sm text-orange-600 bg-orange-100 px-2 py-1 rounded-full">
                 Unsaved changes
               </span>
             )}
+            {organizeState.saveError && (
+              <span className="text-sm text-red-600 bg-red-100 px-2 py-1 rounded-full">
+                Save failed: {organizeState.saveError}
+              </span>
+            )}
           </div>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={handleGenerate}
-              className="px-3 py-1 rounded text-sm transition-colors border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 hover:text-gray-900"
-            >
-              Generate
-            </button>
-            {hasUnsavedChanges && (
+            <div className="flex items-center space-x-3">
               <button
-                onClick={handleCancel}
+                onClick={handleGenerate}
                 className="px-3 py-1 rounded text-sm transition-colors border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 hover:text-gray-900"
               >
-                Revert
+                Generate
               </button>
-            )}
-            <button 
-              onClick={handleSave}
-              disabled={!hasUnsavedChanges}
-              className={`px-3 py-1 rounded text-sm transition-colors ${
-                hasUnsavedChanges 
-                  ? 'bg-green-600 text-white hover:bg-green-700' 
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              Save
-            </button>
-          </div>
+              {(pendingCardMoves.length > 0 || 
+                pendingSectionCreations.length > 0 || 
+                pendingSectionChanges.length > 0 || 
+                pendingSectionDeletions.length > 0) && (
+                <button
+                  onClick={() => {
+                    // Reset all pending changes
+                    updateOrganizeState({
+                      pendingCardMoves: [],
+                      pendingSectionCreations: [],
+                      pendingSectionChanges: [],
+                      pendingSectionDeletions: [],
+                      // Reset card positions to original state
+                      unorganizedCards: {}, // Will be refetched
+                      organizedCards: {}    // Will be refetched
+                    });
+                    // Reload data
+                    loadInitialData();
+                  }}
+                  className="px-3 py-1 rounded text-sm transition-colors border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 hover:text-gray-900"
+                >
+                  Revert
+                </button>
+              )}
+              <button 
+                onClick={handleSave}
+                disabled={organizeState.isSaving || !(pendingCardMoves.length > 0 || 
+                  pendingSectionCreations.length > 0 || 
+                  pendingSectionChanges.length > 0 || 
+                  pendingSectionDeletions.length > 0)}
+                className={`px-3 py-1 rounded text-sm transition-colors ${
+                  (pendingCardMoves.length > 0 || 
+                   pendingSectionCreations.length > 0 || 
+                   pendingSectionChanges.length > 0 || 
+                   pendingSectionDeletions.length > 0)
+                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {organizeState.isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
         </div>
       </div>
 
       {/* Bottom Cards Area */}
       <div className="flex-1 overflow-y-auto p-6">
-        {loading ? (
-          <div className="text-center py-12 text-gray-400">
-            <div className="text-4xl mb-4">⏳</div>
-            <p className="text-lg font-medium mb-2">Loading sections...</p>
-          </div>
-        ) : localSections.length === 0 ? (
+        {displaySections.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
             <div className="text-4xl mb-4">📁</div>
             <p className="text-lg font-medium mb-2">No sections yet</p>
@@ -296,7 +326,7 @@ const OrganizeRightPanel = ({ sections, onCardDrop }) => {
           </div>
         ) : (
           <div className="space-y-8">
-            {localSections.map((category) => (
+            {displaySections.map((category) => (
               <div key={category.id} className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
                 {/* Category Header - White background */}
                 <div className="bg-white px-4 py-3 border-b border-gray-200 flex items-center justify-between">
@@ -353,29 +383,52 @@ const OrganizeRightPanel = ({ sections, onCardDrop }) => {
                         onChange={(e) => {
                           // Update local state immediately for responsive UI
                           // The actual save happens on blur
-                          console.log('Description changed:', e.target.value);
                         }}
                       />
                     </div>
                   )}
                   
-                  {category.cards.length > 0 ? (
-                    <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-2 px-4">
-                      {category.cards.map((card) => (
-                        <Card 
-                          key={card.id} 
-                          card={card} 
-                          onClick={() => {}} // No click handler for now
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-400 mx-4">
-                      <div className="text-2xl mb-2">📋</div>
-                      <p className="font-medium mb-1">No cards yet</p>
-                      <p className="text-sm">Drag cards from the left panel to organize them here</p>
-                    </div>
-                  )}
+                  <Droppable 
+                    droppableId={`right-section-${category.id}`}
+                    direction="horizontal"
+                    isDropDisabled={false}
+                    isCombineEnabled={false}
+                    ignoreContainerClipping={false}
+                  >
+                    {(provided, snapshot) => {
+                      const sectionCards = organizedCards[category.id] || [];
+                      return (
+                        <div 
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className="flex gap-4 overflow-x-auto custom-scrollbar pb-2 px-4 min-h-[200px]"
+                        >
+                          {sectionCards.length > 0 ? (
+                            <>
+                              {sectionCards.map((card, index) => (
+                                <Card 
+                                  key={card.id} 
+                                  card={card} 
+                                  onClick={() => {}} // No click handler for now
+                                  index={index}  // NEW: Make cards draggable within their section
+                                  showRemoveButton={true}  // Show remove button for organized cards
+                                  onRemove={removeCardFromSection}  // Call remove function
+                                  sectionId={category.id}  // Pass section ID for removal
+                                />
+                              ))}
+                            </>
+                          ) : (
+                            <div className="text-center py-8 text-gray-400 mx-4 w-full">
+                              <div className="text-2xl mb-2">📋</div>
+                              <p className="text-sm">No cards yet</p>
+                              <p className="text-sm">Drag cards from the left panel to organize them here</p>
+                            </div>
+                          )}
+                          {provided.placeholder}
+                        </div>
+                      );
+                    }}
+                  </Droppable>
                 </div>
               </div>
             ))}
