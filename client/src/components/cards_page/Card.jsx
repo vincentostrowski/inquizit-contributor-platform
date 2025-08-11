@@ -1,14 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Draggable } from 'react-beautiful-dnd';
 
 const Card = ({ card, onClick, index, onDragStart, onDragEnd, showRemoveButton, onRemove, sectionId }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [hoverTimeout, setHoverTimeout] = useState(null);
+  const cardRef = useRef(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeout) {
+        clearTimeout(hoverTimeout);
+      }
+    };
+  }, [hoverTimeout]);
+
+  // Additional cleanup when hover state changes
+  useEffect(() => {
+    // Force cleanup of hover state if it gets stuck
+    const forceCleanup = setTimeout(() => {
+      if (isHovered && !cardRef.current?.matches(':hover')) {
+        setIsHovered(false);
+      }
+    }, 2000);
+
+    return () => clearTimeout(forceCleanup);
+  }, [isHovered]);
 
   if (!card) return null;
 
+  const handleMouseEnter = () => {
+    // Clear any existing timeout
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+      setHoverTimeout(null);
+    }
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    // Set a small delay before hiding to prevent flickering
+    const timeout = setTimeout(() => {
+      setIsHovered(false);
+    }, 100);
+    setHoverTimeout(timeout);
+  };
+
+  const handleMouseMove = () => {
+    // Reset hover state on mouse movement to prevent stuck state
+    if (!isHovered) {
+      setIsHovered(true);
+    }
+  };
+
   const BaseCard = ({ dragClassName = '', dragStyle, dragHandlers = {} }) => (
     <div
+      ref={cardRef}
       className={`w-64 h-80 bg-[#F8F5F0] rounded-2xl shadow-md border border-gray-200 cursor-pointer hover:shadow-lg transition-shadow flex-shrink-0 relative ${dragClassName}`}
       style={dragStyle}
       onClick={() => {
@@ -16,8 +64,9 @@ const Card = ({ card, onClick, index, onDragStart, onDragEnd, showRemoveButton, 
           onClick?.(card);
         }
       }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onMouseMove={handleMouseMove}
       draggable={!!onDragStart} // Make draggable if onDragStart is provided
       onDragStart={(e) => {
         if (onDragStart) {

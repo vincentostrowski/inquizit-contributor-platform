@@ -20,12 +20,14 @@ const OrganizeLeftPanel = ({ organizeState, updateOrganizeState, addPendingCardM
 
       // Determine loading state based on data availability
   useEffect(() => {
-    if (sourceSections.length > 0 && Object.keys(unorganizedCards).length === 0) {
+    // Only show loading when we don't have source sections yet
+    // If we have source sections but no unorganized cards, that's fine - just show empty sections
+    if (sourceSections.length === 0) {
       setLoading(true);
     } else {
       setLoading(false);
     }
-  }, [sourceSections, unorganizedCards]);
+  }, [sourceSections]);
 
   if (loading) {
     return (
@@ -77,7 +79,7 @@ const OrganizeLeftPanel = ({ organizeState, updateOrganizeState, addPendingCardM
                 )}
               </div>
               
-              {/* Cards Area - Only show when there are cards */}
+              {/* Cards Area - Show empty state when no cards */}
               {hasCards && (
                 <div className="py-4">
                   <Droppable 

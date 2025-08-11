@@ -58,7 +58,7 @@ const Organize = () => {
   }, []);
   
   const addPendingSectionCreation = useCallback((sectionData) => {
-    const tempId = `temp-${Date.now()}`;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     setOrganizeState(prev => ({
       ...prev,
       pendingSectionCreations: [...prev.pendingSectionCreations, { tempId, ...sectionData }]
@@ -142,10 +142,10 @@ const Organize = () => {
     if (!sections || sections.length === 0) return {};
     
     try {
-      // Single query to get all unorganized cards
+      // Optimized query - only fetch fields needed for organization
       const { data: allUnorganizedCards, error } = await supabase
         .from('cards')
-        .select('*')
+        .select('id, title, description, banner, source_section, order')
         .is('section', null)  // Unorganized cards
         .order('order', { ascending: true });
 
@@ -171,9 +171,10 @@ const Organize = () => {
   
   const fetchDestinationSections = useCallback(async () => {
     try {
+      // Optimized query - only fetch fields needed for organization
       const { data: cardSections, error } = await supabase
         .from('card_sections')
-        .select('*')
+        .select('id, title, description, created_at')
         .order('created_at', { ascending: true });
       
       if (error) throw error;
@@ -186,9 +187,10 @@ const Organize = () => {
   
   const fetchOrganizedCards = useCallback(async () => {
     try {
+      // Optimized query - only fetch fields needed for organization
       const { data: organizedCards, error } = await supabase
         .from('cards')
-        .select('*')
+        .select('id, title, description, banner, section, source_section, final_order')
         .not('section', 'is', null)
         .order('final_order', { ascending: true });
       

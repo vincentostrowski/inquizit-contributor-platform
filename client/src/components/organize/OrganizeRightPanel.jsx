@@ -32,6 +32,7 @@ const OrganizeRightPanel = ({
   const [expandedSections, setExpandedSections] = useState(new Set());
   const [editingTitle, setEditingTitle] = useState(null);
   const [editingTitleValue, setEditingTitleValue] = useState('');
+  const [processing, setProcessing] = useState(false);
   
   // Combine existing sections with pending changes for display
   const displaySections = React.useMemo(() => {
@@ -69,6 +70,23 @@ const OrganizeRightPanel = ({
       setExpandedSections(new Set(destinationSections.map(section => section.id)));
     }
   }, [destinationSections]);
+
+  // Auto-expand newly created sections
+  useEffect(() => {
+    if (displaySections.length > 0) {
+      const newSectionIds = displaySections
+        .filter(section => section.id && section.id.toString().startsWith('temp-'))
+        .map(section => section.id);
+      
+      if (newSectionIds.length > 0) {
+        setExpandedSections(prev => {
+          const newSet = new Set(prev);
+          newSectionIds.forEach(id => newSet.add(id));
+          return newSet;
+        });
+      }
+    }
+  }, [displaySections]);
 
   const updateLocalSection = (sectionId, updates) => {
     // Add to pending changes in global state
@@ -196,15 +214,17 @@ const OrganizeRightPanel = ({
   };
 
   const handleGenerate = () => {
-    // Collect all cards from the book's sections
-    const allBookCards = destinationSections.flatMap(section => 
-      section.cards?.map(card => ({
-        id: card.id,
-        title: card.title,
-        description: card.description,
-        card_idea: card.card_idea
-      })) || []
-    );
+    // Collect all cards from both unorganized and organized states
+    const unorganizedCards = Object.values(organizeState.unorganizedCards).flat();
+    const organizedCards = Object.values(organizeState.organizedCards).flat();
+    
+    // Combine all cards for the book
+    const allBookCards = [...unorganizedCards, ...organizedCards].map(card => ({
+      id: card.id,
+      title: card.title,
+      description: card.description,
+      card_idea: card.card_idea
+    }));
     
     setBookCards(allBookCards);
     setShowGenerateModal(true);
@@ -212,14 +232,141 @@ const OrganizeRightPanel = ({
 
   const handleProcessAIResponse = async (aiResponse) => {
     try {
-      // Here you would process the AI response to create new categories
-      // For now, we'll just log it and close the modal
+      setProcessing(true);
       
+      // Phase 1: Basic Response Parsing & Validation
+      
+      // Validate the AI response structure
+      if (!aiResponse.sections || !Array.isArray(aiResponse.sections)) {
+        throw new Error('Invalid AI response: missing or invalid sections array');
+      }
+      
+      if (aiResponse.sections.length === 0) {
+        throw new Error('AI response contains no sections');
+      }
+      
+      // Validate each section structure
+      for (const section of aiResponse.sections) {
+        if (!section.title || typeof section.title !== 'string') {
+          throw new Error('Each section must have a valid title');
+        }
+        
+        if (!section.cardIds || !Array.isArray(section.cardIds)) {
+          throw new Error(`Section "${section.title}" must have a cardIds array`);
+        }
+        
+        if (section.cardIds.length === 0) {
+          console.warn(`Section "${section.title}" has no cards assigned`);
+        }
+        
+        // Validate card IDs are strings or numbers
+        for (const cardId of section.cardIds) {
+          if (cardId === null || cardId === undefined) {
+            throw new Error(`Section "${section.title}" contains invalid card ID: ${cardId}`);
+          }
+        }
+      }
+      
+      // Phase 2: Section Creation
+      const createdSections = [];
+      
+      // Create new sections based on AI response
+      for (const aiSection of aiResponse.sections) {
+        const newSection = {
+          title: aiSection.title,
+          description: aiSection.description || ''
+        };
+        
+        // Create the section and get its temporary ID
+        const tempId = addPendingSectionCreation(newSection);
+        
+        createdSections.push({
+          tempId,
+          title: aiSection.title,
+          cardIds: aiSection.cardIds
+        });
+      }
+      
+      // Phase 3: Card Organization
+      let totalCardsMoved = 0;
+      
+      // Collect all changes first, then update state once
+      const newUnorganizedCards = { ...organizeState.unorganizedCards };
+      const newOrganizedCards = { ...organizeState.organizedCards };
+      
+      // Process each section's card assignments
+      for (const createdSection of createdSections) {
+        const { tempId, cardIds } = createdSection;
+        
+        // Move each card to the new section
+        for (const cardId of cardIds) {
+          try {
+            // Find the card in unorganized state
+            let foundCard = null;
+            let sourceSectionId = null;
+            
+            // Search through all unorganized cards
+            for (const [sectionId, cards] of Object.entries(organizeState.unorganizedCards)) {
+              const card = cards.find(c => c.id.toString() === cardId.toString());
+              if (card) {
+                foundCard = card;
+                sourceSectionId = sectionId;
+                break;
+              }
+            }
+            
+            if (!foundCard) {
+              console.warn(`Card ${cardId} not found in unorganized state`);
+              continue;
+            }
+            
+            // Add card move to pending changes
+            addPendingCardMove({
+              type: 'left_to_right',
+              cardId: foundCard.id,
+              fromSectionId: parseInt(sourceSectionId),
+              toSectionId: tempId,
+              dropIndex: 0, // Will be updated with actual position
+              originalSourceSectionId: parseInt(sourceSectionId)
+            });
+            
+            // Remove card from unorganized state
+            newUnorganizedCards[sourceSectionId] = newUnorganizedCards[sourceSectionId].filter(c => c.id !== foundCard.id);
+            
+            // Add card to organized state
+            if (!newOrganizedCards[tempId]) {
+              newOrganizedCards[tempId] = [];
+            }
+            
+            // Add card to the new section
+            newOrganizedCards[tempId].push({
+              ...foundCard,
+              section: tempId,
+              final_order: newOrganizedCards[tempId].length
+            });
+            
+            totalCardsMoved++;
+            
+          } catch (error) {
+            console.error(`Error moving card ${cardId}:`, error);
+          }
+        }
+      }
+      
+      // Make one final state update with all accumulated changes
+      updateOrganizeState({
+        unorganizedCards: newUnorganizedCards,
+        organizedCards: newOrganizedCards
+      });
+      
+      // Close modal and show success
       setShowGenerateModal(false);
-      // TODO: Implement category creation from AI response
       
     } catch (error) {
       console.error('Error processing AI response:', error);
+      alert(`Error processing AI response: ${error.message}`);
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -267,9 +414,17 @@ const OrganizeRightPanel = ({
             <div className="flex items-center space-x-3">
               <button
                 onClick={handleGenerate}
-                className="px-3 py-1 rounded text-sm transition-colors border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 hover:text-gray-900"
+                disabled={processing}
+                className="px-3 py-1 rounded text-sm transition-colors border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Generate
+                {processing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                    Loading...
+                  </>
+                ) : (
+                  'Generate'
+                )}
               </button>
               {(pendingCardMoves.length > 0 || 
                 pendingSectionCreations.length > 0 || 

@@ -20,13 +20,11 @@ const OrganizeGenerateModal = ({ isOpen, onClose, bookCards, onProcessResponse }
   const promptData = {
     bookTitle: 'Book Organization',
     totalCards: bookCards.length,
-    prompt: `You are tasked with organizing ${bookCards.length} cards from a book into logical categories. 
+    prompt: `You are tasked with organizing cards from a book into logical categories. 
 
 Here are all the cards from the book in JSON format:
 
-\`\`\`json
 ${JSON.stringify(bookCards, null, 2)}
-\`\`\`
 
 Please analyze these cards and create a logical organizational structure. Group related cards together into sections that make sense for learning and understanding the material.
 
@@ -37,7 +35,6 @@ For each section, provide:
 
 Return your response as valid JSON in this format:
 
-\`\`\`json
 {
   "sections": [
     {
@@ -48,7 +45,6 @@ Return your response as valid JSON in this format:
     }
   ]
 }
-\`\`\`
 
 Focus on creating sections that help learners understand the relationships between concepts and build knowledge progressively. Each card should be assigned to exactly one section.`
   };
