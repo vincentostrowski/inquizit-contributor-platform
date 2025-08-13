@@ -1,9 +1,10 @@
 import React from 'react';
 import MobileHeader from '../MobileHeader';
-import { useCardContent } from '../../../hooks/useCardContent';
 
-const CardView = ({ card, onBack, headerColor, backgroundEndColor, buttonTextBorderColor, buttonCircleColor, bookData }) => {
-  const { content, loading: contentLoading, error: contentError } = useCardContent(card?.id);
+const CardView = ({ card, onBack, headerColor, backgroundEndColor, buttonTextBorderColor, buttonCircleColor, bookData, cardSections }) => {
+  // Find the card content from the passed data instead of fetching
+  const cardWithContent = cardSections?.flatMap(section => section.cards).find(c => c.id === card?.id);
+  const content = cardWithContent?.content;
 
   if (!card) {
     return (
@@ -86,19 +87,9 @@ const CardView = ({ card, onBack, headerColor, backgroundEndColor, buttonTextBor
         </div>
 
         {/* Card Content Section */}
-        {contentLoading && (
-          <div className="mt-6 text-center">
-            <div className="text-gray-500 text-sm">Loading content...</div>
-          </div>
-        )}
+        {/* contentLoading and contentError are removed as they are no longer fetched */}
         
-        {contentError && (
-          <div className="mt-6 text-center">
-            <div className="text-red-500 text-sm">Error loading content: {contentError}</div>
-          </div>
-        )}
-        
-        {content && !contentLoading && !contentError && (
+        {content && (
           <div className="mt-6">
               <div className="text-gray-700 leading-relaxed text-xs whitespace-pre-wrap">
                 {content}

@@ -6,23 +6,6 @@ import CardView from './views/CardView';
 import QuizitView from './views/QuizitView';
 
 const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBorderColor, buttonCircleColor }) => {
-  // Function to determine if a color is light or dark
-  const getContrastColor = (hexColor) => {
-    // Remove the # if present
-    const hex = hexColor.replace('#', '');
-    
-    // Convert to RGB
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-    
-    // Calculate luminance (brightness)
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    
-    // Return black for light backgrounds, white for dark backgrounds
-    return luminance > 0.5 ? '#000000' : '#FFFFFF';
-  };
-
   // View constants
   const VIEWS = {
     BOOK_VIEW: 'BOOK_VIEW',
@@ -33,17 +16,25 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
 
   // State for routing
   const [currentView, setCurrentView] = useState(VIEWS.BOOK_VIEW);
-  const [selectedBook, setSelectedBook] = useState(null);
   const [selectedSection, setSelectedSection] = useState(null);
   const [selectedCard, setSelectedCard] = useState(null);
   const [cardSectionsData, setCardSectionsData] = useState(null);
+
+  // Function to determine if a color is light or dark (moved inline where needed)
+  const getContrastColor = (hexColor) => {
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.5 ? '#000000' : '#FFFFFF';
+  };
 
   // Router function
   const renderCurrentView = () => {
     switch (currentView) {
       case VIEWS.BOOK_VIEW:
         return <BookView 
-          onBack={() => setCurrentView(VIEWS.BOOK_VIEW)} 
           bookData={bookData} 
           headerColor={headerColor}
           backgroundEndColor={backgroundEndColor}
@@ -57,7 +48,13 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
             setSelectedSection(sectionId);
             setCurrentView(VIEWS.SECTION_VIEW);
           }}
-          onDataLoaded={(data) => setCardSectionsData(data)}
+          onDataLoaded={(data) => {
+            // Only update if we don't already have data or if it's different
+            if (!cardSectionsData || JSON.stringify(cardSectionsData) !== JSON.stringify(data)) {
+              setCardSectionsData(data);
+            }
+          }}
+          existingData={cardSectionsData}
         />;
       case VIEWS.SECTION_VIEW:
         return <SectionView 
@@ -82,12 +79,12 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
           buttonTextBorderColor={buttonTextBorderColor}
           buttonCircleColor={buttonCircleColor}
           bookData={bookData}
+          cardSections={cardSectionsData}
         />;
       case VIEWS.QUIZIT_VIEW:
         return <QuizitView />;
       default:
         return <BookView 
-          onBack={() => setCurrentView(VIEWS.BOOK_VIEW)} 
           bookData={bookData}
           headerColor={headerColor}
           backgroundEndColor={backgroundEndColor}
@@ -101,7 +98,13 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
             setSelectedSection(sectionId);
             setCurrentView(VIEWS.SECTION_VIEW);
           }}
-          onDataLoaded={(data) => setCardSectionsData(data)}
+          onDataLoaded={(data) => {
+            // Only update if we don't already have data or if it's different
+            if (!cardSectionsData || JSON.stringify(cardSectionsData) !== JSON.stringify(data)) {
+              setCardSectionsData(data);
+            }
+          }}
+          existingData={cardSectionsData}
         />;
     }
   };
@@ -137,6 +140,7 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
           {renderCurrentView()}
           
           {/* Bottom Navigation Bar - Fixed on Library */}
+          {cardSectionsData && cardSectionsData.length > 0 && (
           <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
             <div className="flex justify-around items-center">
               {/* Home */}
@@ -164,8 +168,9 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
                 <Icon icon="mdi:account" className="w-6 h-6 text-gray-500" />
                 <span className="text-xs text-gray-500 mt-1">Me</span>
               </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
       

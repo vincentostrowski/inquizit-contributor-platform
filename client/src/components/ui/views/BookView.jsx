@@ -6,7 +6,7 @@ import CardsList from '../CardsList';
 import { useCardSections } from '../../../hooks/useCardSections';
 import { useBook } from '../../../context/BookContext';
 
-const BookView = ({ onBack, bookData, headerColor, backgroundEndColor, buttonTextBorderColor, buttonCircleColor, onCardClick, onSectionClick, onDataLoaded }) => {
+const BookView = ({ bookData, headerColor, backgroundEndColor, buttonTextBorderColor, buttonCircleColor, onCardClick, onSectionClick, onDataLoaded, existingData }) => {
   // Toggle state for view mode
   const [viewMode, setViewMode] = useState('cards'); // 'collapse' or 'cards'
   
@@ -14,22 +14,24 @@ const BookView = ({ onBack, bookData, headerColor, backgroundEndColor, buttonTex
   const { currentBook } = useBook();
   const { cardSections, loading, error } = useCardSections(currentBook);
   
+  // Use existing data if available, otherwise use fetched data
+  const sectionsToUse = existingData || cardSections;
+  
   // Transform cardSections to match our component expectations
   // Map banner field to coverURL for SectionCard component
-  const sections = cardSections.map(section => ({
+  const sections = sectionsToUse?.map(section => ({
     ...section,
-    cards: section.cards.map(card => ({
+    cards: section.cards?.map(card => ({
       ...card,
       coverURL: card.banner // Map banner to coverURL
-    }))
-  }));
-
-  // Pass data up to parent when it loads
+    })) || []
+  })) || [];
+  // Pass data up to parent when it loads (only if we don't already have existing data)
   React.useEffect(() => {
-    if (!loading && !error && cardSections.length > 0 && onDataLoaded) {
+    if (!loading && !error && cardSections.length > 0 && onDataLoaded && !existingData) {
       onDataLoaded(cardSections);
     }
-  }, [cardSections, loading, error, onDataLoaded]);
+  }, [cardSections, loading, error, onDataLoaded, existingData]);
 
   const handleSectionClick = (sectionId) => {
     if (onSectionClick) {
@@ -42,6 +44,17 @@ const BookView = ({ onBack, bookData, headerColor, backgroundEndColor, buttonTex
       onCardClick(card);
     }
   };
+
+  // Don't render content until we have data
+  if (!sectionsToUse || sectionsToUse.length === 0) {
+    return (
+      <div className="VIEW bg-orange-50 flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-gray-700 text-2xl font-medium">Inquizit</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="VIEW bg-white flex-1 flex flex-col overflow-hidden">
@@ -64,13 +77,6 @@ const BookView = ({ onBack, bookData, headerColor, backgroundEndColor, buttonTex
           
           {/* Content that flows over the background */}
           <div className="relative">
-            {/* Loading State */}
-            {loading && (
-              <div className="flex items-center justify-center py-20">
-                <div className="text-gray-500">Loading sections...</div>
-              </div>
-            )}
-            
             {/* Error State */}
             {error && (
               <div className="flex items-center justify-center py-20">
@@ -78,8 +84,8 @@ const BookView = ({ onBack, bookData, headerColor, backgroundEndColor, buttonTex
               </div>
             )}
             
-            {/* Content when loaded */}
-            {!loading && !error && (
+            {/* Content */}
+            {!error && (
               <>
                 {/* Book */}
                 <div className="flex flex-col items-center justify-center gap-2 pt-8">
