@@ -36,6 +36,7 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
   const [selectedBook, setSelectedBook] = useState(null);
   const [selectedSection, setSelectedSection] = useState(null);
   const [selectedCard, setSelectedCard] = useState(null);
+  const [cardSectionsData, setCardSectionsData] = useState(null);
 
   // Router function
   const renderCurrentView = () => {
@@ -52,9 +53,26 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
             setSelectedCard(card);
             setCurrentView(VIEWS.CARD_VIEW);
           }}
+          onSectionClick={(sectionId) => {
+            setSelectedSection(sectionId);
+            setCurrentView(VIEWS.SECTION_VIEW);
+          }}
+          onDataLoaded={(data) => setCardSectionsData(data)}
         />;
       case VIEWS.SECTION_VIEW:
-        return <SectionView />;
+        return <SectionView 
+          onBack={() => setCurrentView(VIEWS.BOOK_VIEW)} 
+          headerColor={headerColor}
+          backgroundEndColor={backgroundEndColor}
+          buttonTextBorderColor={buttonTextBorderColor}
+          buttonCircleColor={buttonCircleColor}
+          sectionId={selectedSection}
+          cardSections={cardSectionsData}
+          onCardClick={(card) => {
+            setSelectedCard(card);
+            setCurrentView(VIEWS.CARD_VIEW);
+          }}
+        />;
       case VIEWS.CARD_VIEW:
         return <CardView 
           card={selectedCard} 
@@ -79,6 +97,11 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
             setSelectedCard(card);
             setCurrentView(VIEWS.CARD_VIEW);
           }}
+          onSectionClick={(sectionId) => {
+            setSelectedSection(sectionId);
+            setCurrentView(VIEWS.SECTION_VIEW);
+          }}
+          onDataLoaded={(data) => setCardSectionsData(data)}
         />;
     }
   };

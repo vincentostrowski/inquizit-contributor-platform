@@ -1,5 +1,5 @@
 import React from 'react';
-import SectionCard from './SectionCard';
+import SectionCard from './views/BookView/SectionCard';
 
 const CardsList = ({ sections, onSectionClick, onCardClick }) => {
   return (
@@ -8,7 +8,7 @@ const CardsList = ({ sections, onSectionClick, onCardClick }) => {
         <div key={section.id} className="space-y-3">
           {/* Section Header */}
           <div className="space-y-1 px-1">
-            <h3 className="text-xs font-normal text-gray-900">
+            <h3 className="text-xs font-normal text-gray-900 cursor-pointer" onClick={() => onSectionClick(section.id)}>
               {section.title}
             </h3>
           </div>

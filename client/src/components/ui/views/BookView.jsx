@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import BookCover from '../BookCover';
+import BookCover from './BookView/BookCover';
 import MobileHeader from '../MobileHeader';
 import SectionsList from '../SectionsList';
 import CardsList from '../CardsList';
 import { useCardSections } from '../../../hooks/useCardSections';
 import { useBook } from '../../../context/BookContext';
 
-const BookView = ({ onBack, bookData, headerColor, backgroundEndColor, buttonTextBorderColor, buttonCircleColor, onCardClick }) => {
+const BookView = ({ onBack, bookData, headerColor, backgroundEndColor, buttonTextBorderColor, buttonCircleColor, onCardClick, onSectionClick, onDataLoaded }) => {
   // Toggle state for view mode
   const [viewMode, setViewMode] = useState('cards'); // 'collapse' or 'cards'
   
@@ -24,8 +24,17 @@ const BookView = ({ onBack, bookData, headerColor, backgroundEndColor, buttonTex
     }))
   }));
 
+  // Pass data up to parent when it loads
+  React.useEffect(() => {
+    if (!loading && !error && cardSections.length > 0 && onDataLoaded) {
+      onDataLoaded(cardSections);
+    }
+  }, [cardSections, loading, error, onDataLoaded]);
+
   const handleSectionClick = (sectionId) => {
-    // Section click handler - future implementation
+    if (onSectionClick) {
+      onSectionClick(sectionId);
+    }
   };
 
   const handleCardClick = (card) => {
