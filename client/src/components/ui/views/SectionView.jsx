@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import MobileHeader from '../MobileHeader';
 import OverlappingCards from './SectionView/OverlappingCards';
 import HorizontalCardsRow from './SectionView/HorizontalCardsRow';
 
-const SectionView = ({ onBack, headerColor, backgroundEndColor, buttonTextBorderColor, buttonCircleColor, sectionId, cardSections, onCardClick }) => {
-  // Toggle state for view mode
-  const [viewMode, setViewMode] = useState('cards'); // 'collapse' or 'cards'
+const SectionView = ({ onBack, headerColor, backgroundEndColor, buttonTextBorderColor, buttonCircleColor, sectionId, cardSections, viewMode, setViewMode, onCardClick }) => {
+  // Toggle state for view mode - now comes from global state in parent
   
   // Find the selected section from passed data
   const selectedSection = cardSections?.find(section => section.id === sectionId);
@@ -51,7 +50,7 @@ const SectionView = ({ onBack, headerColor, backgroundEndColor, buttonTextBorder
       <div className="flex-1 overflow-y-auto min-h-0 relative pb-20 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {/* Background gradient - positioned as background */}
         <div 
-          className="absolute -top-0 left-0 w-full h-72 z-0"
+          className="absolute -top-0 left-0 w-full h-52 z-0 rounded-b-[15%]"
           style={{
             background: `linear-gradient(to bottom, ${headerColor}, ${backgroundEndColor})`
           }}
@@ -70,8 +69,8 @@ const SectionView = ({ onBack, headerColor, backgroundEndColor, buttonTextBorder
                 />
 
                 {/* Section Title and Description */}
-                <div className="bg-white rounded-t-[15%] w-full p-4">
-                  <h1 className="TITLE text-lg font-semibold w-full text-center mb-2 px-2">
+                <div className="bg-white w-full p-4">
+                  <h1 className="TITLE text-sm font-semibold w-full text-center mb-2 px-2">
                     {section.title || 'Untitled Section'}
                   </h1>
               
@@ -81,7 +80,7 @@ const SectionView = ({ onBack, headerColor, backgroundEndColor, buttonTextBorder
                   </p>
                 </div>
               </div>
-
+              <div className="w-full h-[1px] bg-gray-200" />
               {/* Toggle Switch */}
               <div className="flex items-center justify-end px-6 py-2">
                 {/* Card List View Button */}

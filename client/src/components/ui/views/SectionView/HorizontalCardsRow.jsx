@@ -2,9 +2,9 @@ import React from 'react';
 
 const HorizontalCardsRow = ({ cards, onCardClick }) => {
   return (
-    <div className="px-4 pb-6">
+    <div className="pb-6">
       {/* Cards - Horizontal scrollable row */}
-      <div className="flex gap-4 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+      <div className="flex gap-4 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-4">
         {cards.map((card) => (
           <div
             key={card.id}

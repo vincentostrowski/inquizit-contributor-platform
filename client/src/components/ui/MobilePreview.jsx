@@ -19,6 +19,9 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
   const [selectedSection, setSelectedSection] = useState(null);
   const [selectedCard, setSelectedCard] = useState(null);
   const [cardSectionsData, setCardSectionsData] = useState(null);
+  
+  // Global toggle state that persists across views
+  const [viewMode, setViewMode] = useState('cards'); // 'cards' or 'collapse'
 
   // Function to determine if a color is light or dark (moved inline where needed)
   const getContrastColor = (hexColor) => {
@@ -40,6 +43,8 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
           backgroundEndColor={backgroundEndColor}
           buttonTextBorderColor={buttonTextBorderColor}
           buttonCircleColor={buttonCircleColor}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
           onCardClick={(card) => {
             setSelectedCard(card);
             setCurrentView(VIEWS.CARD_VIEW);
@@ -65,6 +70,8 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
           buttonCircleColor={buttonCircleColor}
           sectionId={selectedSection}
           cardSections={cardSectionsData}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
           onCardClick={(card) => {
             setSelectedCard(card);
             setCurrentView(VIEWS.CARD_VIEW);
@@ -111,8 +118,8 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
 
   return (
     <div className="relative">
-      {/* Phone Frame */}
-      <div className="FRAME w-[420px] h-[850px] bg-gray-900 rounded-[3rem] p-3 shadow-2xl">
+      {/* Phone Frame - Dynamic height that maintains consistent spacing */}
+      <div className="FRAME w-[420px] bg-gray-900 rounded-[3rem] p-3 shadow-2xl" style={{ height: 'calc(100vh - 150px)' }}>
         {/* Phone Screen */}
         <div className="SCREEN w-full h-full bg-white rounded-[2.5rem] relative flex flex-col overflow-hidden">
           {/* Status Bar */}
@@ -177,7 +184,6 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
       {/* Phone Label */}
       <div className="text-center mt-6">
         <p className="text-lg font-medium text-gray-700">Mobile App Preview</p>
-        <p className="text-sm text-gray-500">Phone frame ready for content</p>
       </div>
     </div>
   );

@@ -20,7 +20,7 @@ const BookCover = ({
   const overlappingCards = getFirstThreeCards();
 
   return (
-    <div className="relative h-52 w-full flex justify-center mb-4">
+    <div className="relative h-52 w-full flex justify-center">
       {/* Centered container for the overlapping divs */}
       <div className="relative h-full w-50">
         {/* Book Cover */}

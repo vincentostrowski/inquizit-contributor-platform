@@ -2,7 +2,7 @@ import React from 'react';
 
 const OverlappingCards = ({ cards }) => {
   return (
-    <div className="relative h-52 w-full flex justify-center mb-4">
+    <div className="relative h-52 w-full flex justify-center">
       {/* Centered container for the overlapping cards */}
       <div className="relative h-full w-48">
         {/* Card 1 - Main */}

@@ -29,7 +29,7 @@ const CardView = ({ card, onBack, headerColor, backgroundEndColor, buttonTextBor
 
         {/* Background gradient - positioned as background */}
         <div 
-            className="absolute -top-0 left-0 w-full h-72 z-0 rounded-b-[3%]"
+            className="absolute -top-0 left-0 w-full h-52 z-0 rounded-b-[15%]"
             style={{
               background: `linear-gradient(to bottom, ${headerColor}, ${backgroundEndColor})`
             }}

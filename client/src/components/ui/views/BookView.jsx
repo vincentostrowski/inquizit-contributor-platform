@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import BookCover from './BookView/BookCover';
 import MobileHeader from '../MobileHeader';
 import SectionsList from '../SectionsList';
@@ -6,9 +6,8 @@ import CardsList from '../CardsList';
 import { useCardSections } from '../../../hooks/useCardSections';
 import { useBook } from '../../../context/BookContext';
 
-const BookView = ({ bookData, headerColor, backgroundEndColor, buttonTextBorderColor, buttonCircleColor, onCardClick, onSectionClick, onDataLoaded, existingData }) => {
-  // Toggle state for view mode
-  const [viewMode, setViewMode] = useState('cards'); // 'collapse' or 'cards'
+const BookView = ({ bookData, headerColor, backgroundEndColor, buttonTextBorderColor, buttonCircleColor, viewMode, setViewMode, onCardClick, onSectionClick, onDataLoaded, existingData }) => {
+  // Toggle state for view mode - now comes from global state in parent
   
   // Get current book and fetch sections with cards from database
   const { currentBook } = useBook();
@@ -64,17 +63,15 @@ const BookView = ({ bookData, headerColor, backgroundEndColor, buttonTextBorderC
        buttonTextBorderColor={buttonTextBorderColor}
        buttonCircleColor={buttonCircleColor}
      />
-      
-              {/* Scrollable content container with background, cover, title, description, and sections */}
+      {/* Scrollable content container with background, cover, title, description, and sections */}
         <div className="flex-1 overflow-y-auto min-h-0 relative pb-20 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {/* Background gradient - positioned as background */}
           <div 
-            className="absolute -top-0 left-0 w-full h-72 z-0"
+            className="absolute -top-0 left-0 w-full h-52 z-0 rounded-b-[15%]"
             style={{
               background: `linear-gradient(to bottom, ${headerColor}, ${backgroundEndColor})`
             }}
           />
-          
           {/* Content that flows over the background */}
           <div className="relative">
             {/* Error State */}
@@ -93,18 +90,14 @@ const BookView = ({ bookData, headerColor, backgroundEndColor, buttonTextBorderC
                     coverURL={bookData?.cover} 
                     cardData={sections.flatMap(section => section.cards)}
                   />
-                  {/* Title */}
-                  <div className="bg-white rounded-t-[15%] w-full p-4">
-                    <h1 className="TITLE text-lg font-semibold w-full text-center mb-2">
-                      {bookData?.title || 'Untitled Book'}
-                    </h1>
-              
-                  {/* Description */}
-                  <p className="text-gray-700 text-xs leading-relaxed px-2">
-                    {bookData?.description || 'No description available.'}
-                  </p>
+                  <div className="bg-white w-full p-4">
+                    {/* Description */}
+                    <p className="text-gray-700 text-xs leading-relaxed px-2">
+                      {bookData?.description || 'No description available.'}
+                    </p>
                   </div>
                 </div>
+                <div className="w-full h-[1px] bg-gray-200" />
                     {/* Toggle Switch */}
           <div className="flex items-center justify-end px-6 py-2">
             {/* Card List View Button */}

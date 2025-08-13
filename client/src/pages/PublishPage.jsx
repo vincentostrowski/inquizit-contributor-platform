@@ -156,7 +156,7 @@ const PublishPage = () => {
     <div className="flex h-full">
       {/* Left Half - Phone Preview */}
       <div className="w-1/2 border-r border-gray-200">
-        <div className="h-full bg-gray-50 flex items-center justify-center p-8">
+        <div className="h-full bg-gray-50 flex items-center justify-center">
           <MobilePreview 
             bookData={bookData} 
             headerColor={headerColor}
