@@ -14,7 +14,7 @@ const Navigation = ({ currentBook }) => {
     { path: '/sources', label: 'Sources' },
     { path: '/cards', label: 'Cards' },
     { path: '/organize', label: 'Organize' },
-    { path: '/details', label: 'Details' }
+    { path: '/publish', label: 'Publish' }
   ];
 
   return (

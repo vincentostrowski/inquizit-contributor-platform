@@ -38,9 +38,9 @@ export const useCardSections = (book) => {
         (sections || []).map(async (section) => {
           const { data: cards, error: cardsError } = await supabase
             .from('cards')
-            .select('id, title, description, card_idea, order')
+            .select('id, title, description, card_idea, order, final_order, banner')
             .eq('section', section.id)
-            .order('order', { ascending: true });
+            .order('final_order', { ascending: true });
 
           if (cardsError) {
             console.error(`Error fetching cards for section ${section.id}:`, cardsError);
