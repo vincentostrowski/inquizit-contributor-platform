@@ -48,15 +48,38 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
           backgroundEndColor={backgroundEndColor}
           buttonTextBorderColor={buttonTextBorderColor}
           buttonCircleColor={buttonCircleColor}
+          onCardClick={(card) => {
+            setSelectedCard(card);
+            setCurrentView(VIEWS.CARD_VIEW);
+          }}
         />;
       case VIEWS.SECTION_VIEW:
         return <SectionView />;
       case VIEWS.CARD_VIEW:
-        return <CardView />;
+        return <CardView 
+          card={selectedCard} 
+          onBack={() => setCurrentView(VIEWS.BOOK_VIEW)} 
+          headerColor={headerColor}
+          backgroundEndColor={backgroundEndColor}
+          buttonTextBorderColor={buttonTextBorderColor}
+          buttonCircleColor={buttonCircleColor}
+          bookData={bookData}
+        />;
       case VIEWS.QUIZIT_VIEW:
         return <QuizitView />;
       default:
-        return <BookView onBack={() => setCurrentView(VIEWS.BOOK_VIEW)} bookData={bookData} />;
+        return <BookView 
+          onBack={() => setCurrentView(VIEWS.BOOK_VIEW)} 
+          bookData={bookData}
+          headerColor={headerColor}
+          backgroundEndColor={backgroundEndColor}
+          buttonTextBorderColor={buttonTextBorderColor}
+          buttonCircleColor={buttonCircleColor}
+          onCardClick={(card) => {
+            setSelectedCard(card);
+            setCurrentView(VIEWS.CARD_VIEW);
+          }}
+        />;
     }
   };
 

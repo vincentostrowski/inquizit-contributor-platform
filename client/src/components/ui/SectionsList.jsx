@@ -8,7 +8,7 @@ const SectionsList = ({ sections, onSectionClick }) => {
         <SectionComponent
           key={section.id}
           title={section.title}
-          progressPercentage={section.progressPercentage}
+          cardCount={section.cards?.length || 0}
           onClick={() => onSectionClick(section.id)}
         />
       ))}

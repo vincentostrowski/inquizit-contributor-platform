@@ -43,7 +43,6 @@ export const useCardSections = (book) => {
             .order('final_order', { ascending: true });
 
           if (cardsError) {
-            console.error(`Error fetching cards for section ${section.id}:`, cardsError);
             return { ...section, cards: [], showDescription: true };
           }
 
@@ -59,7 +58,6 @@ export const useCardSections = (book) => {
       setCardSections(sectionsWithCards);
     } catch (err) {
       setError(err.message);
-      console.error('Error fetching card sections:', err);
     } finally {
       setLoading(false);
     }
@@ -103,7 +101,6 @@ export const useCardSections = (book) => {
       return sectionWithDefaults;
     } catch (err) {
       setError(err.message);
-      console.error('Error creating card section:', err);
       return null;
     }
   };
@@ -131,7 +128,6 @@ export const useCardSections = (book) => {
       return updatedSection;
     } catch (err) {
       setError(err.message);
-      console.error('Error updating card section:', err);
       return null;
     }
   };
@@ -145,7 +141,6 @@ export const useCardSections = (book) => {
         .eq('section', sectionId);
 
       if (cardsError) {
-        console.error('Error updating cards:', cardsError);
         // Continue with deletion even if card update fails
       }
 
@@ -164,7 +159,6 @@ export const useCardSections = (book) => {
       return true;
     } catch (err) {
       setError(err.message);
-      console.error('Error deleting card section:', err);
       return false;
     }
   };

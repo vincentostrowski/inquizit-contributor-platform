@@ -6,7 +6,7 @@ import CardsList from '../CardsList';
 import { useCardSections } from '../../../hooks/useCardSections';
 import { useBook } from '../../../context/BookContext';
 
-const BookView = ({ onBack, bookData, headerColor, backgroundEndColor, buttonTextBorderColor, buttonCircleColor }) => {
+const BookView = ({ onBack, bookData, headerColor, backgroundEndColor, buttonTextBorderColor, buttonCircleColor, onCardClick }) => {
   // Toggle state for view mode
   const [viewMode, setViewMode] = useState('cards'); // 'collapse' or 'cards'
   
@@ -25,13 +25,13 @@ const BookView = ({ onBack, bookData, headerColor, backgroundEndColor, buttonTex
   }));
 
   const handleSectionClick = (sectionId) => {
-    console.log(`Section ${sectionId} clicked`);
-    // TODO: Navigate to section view
+    // Section click handler - future implementation
   };
 
-  const handleCardClick = (cardId) => {
-    console.log(`Card ${cardId} clicked`);
-    // TODO: Navigate to card view
+  const handleCardClick = (card) => {
+    if (onCardClick) {
+      onCardClick(card);
+    }
   };
 
   return (
@@ -47,7 +47,7 @@ const BookView = ({ onBack, bookData, headerColor, backgroundEndColor, buttonTex
         <div className="flex-1 overflow-y-auto min-h-0 relative pb-20 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {/* Background gradient - positioned as background */}
           <div 
-            className="absolute -top-0 left-0 w-full rounded-b-[50%] h-60 z-0"
+            className="absolute -top-0 left-0 w-full h-72 z-0"
             style={{
               background: `linear-gradient(to bottom, ${headerColor}, ${backgroundEndColor})`
             }}
@@ -73,21 +73,22 @@ const BookView = ({ onBack, bookData, headerColor, backgroundEndColor, buttonTex
             {!loading && !error && (
               <>
                 {/* Book */}
-                <div className="flex flex-col items-center justify-center gap-2 pt-8 px-6">
+                <div className="flex flex-col items-center justify-center gap-2 pt-8">
                   <BookCover 
                     coverURL={bookData?.cover} 
                     cardData={sections.flatMap(section => section.cards)}
                   />
                   {/* Title */}
-                  <h1 className="TITLE text-lg font-semibold">
-                    {bookData?.title || 'Untitled Book'}
-                  </h1>
+                  <div className="bg-white rounded-t-[15%] w-full p-4">
+                    <h1 className="TITLE text-lg font-semibold w-full text-center mb-2">
+                      {bookData?.title || 'Untitled Book'}
+                    </h1>
               
                   {/* Description */}
                   <p className="text-gray-700 text-xs leading-relaxed px-2">
                     {bookData?.description || 'No description available.'}
                   </p>
-                
+                  </div>
                 </div>
                     {/* Toggle Switch */}
           <div className="flex items-center justify-end px-6 py-2">

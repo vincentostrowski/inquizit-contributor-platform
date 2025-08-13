@@ -14,7 +14,7 @@ const CardsList = ({ sections, onSectionClick, onCardClick }) => {
           </div>
           
           {/* Cards Row - Horizontal Scroll */}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <div className="flex gap-3 pb-2">
               {section.cards.map((card) => (
                 <SectionCard
@@ -22,7 +22,7 @@ const CardsList = ({ sections, onSectionClick, onCardClick }) => {
                   title={card.title}
                   description={card.description}
                   coverURL={card.coverURL}
-                  onClick={() => onCardClick ? onCardClick(card.id) : onSectionClick(section.id)}
+                  onClick={() => onCardClick ? onCardClick(card) : onSectionClick(section.id)}
                 />
               ))}
             </div>
