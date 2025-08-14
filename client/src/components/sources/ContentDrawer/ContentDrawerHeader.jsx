@@ -30,12 +30,14 @@ const ContentDrawerHeader = ({ selectedSection, onUpdateSection, sections, chara
     <div className="border-b border-gray-200 p-4">
       <div className="flex items-center justify-between">
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-gray-900 truncate">
-            {selectedSection?.title}
-            <span className="text-sm text-gray-500 ml-2">
+          <div className="flex items-center min-w-0">
+            <h1 className="text-xl font-bold text-gray-900 truncate flex-1 min-w-0">
+              {selectedSection?.title}
+            </h1>
+            <span className="text-sm text-gray-500 ml-2 flex-shrink-0">
               ({characterCount.toLocaleString()} chars)
             </span>
-          </h1>
+          </div>
         </div>
         <div className="flex items-center space-x-2 ml-4">
           <button

@@ -139,7 +139,7 @@ const Organize = () => {
   
   // Data fetching functions
   const fetchUnorganizedCards = useCallback(async () => {
-    if (!sections || sections.length === 0) return {};
+    if (!sections || sections.length === 0 || !currentBook) return {};
     
     try {
       // Optimized query - only fetch fields needed for organization
@@ -147,6 +147,7 @@ const Organize = () => {
         .from('cards')
         .select('id, title, description, banner, source_section, order')
         .is('section', null)  // Unorganized cards
+        .in('source_section', sections.map(s => s.id))  // Only cards from current book's sections
         .order('order', { ascending: true });
 
       if (error) throw error;
@@ -167,14 +168,17 @@ const Organize = () => {
       console.error('Error fetching unorganized cards:', error);
       return {};
     }
-  }, [sections]);
+  }, [sections, currentBook]);
   
   const fetchDestinationSections = useCallback(async () => {
+    if (!currentBook) return [];
+    
     try {
       // Optimized query - only fetch fields needed for organization
       const { data: cardSections, error } = await supabase
         .from('card_sections')
         .select('id, title, description, created_at')
+        .eq('book', currentBook.id)  // Only sections from current book
         .order('created_at', { ascending: true });
       
       if (error) throw error;
@@ -183,17 +187,24 @@ const Organize = () => {
       console.error('Error fetching destination sections:', error);
       return [];
     }
-  }, []);
+  }, [currentBook]);
   
   const fetchOrganizedCards = useCallback(async () => {
+    if (!currentBook) return {};
+    
     try {
       // Optimized query - only fetch fields needed for organization
       const { data: organizedCards, error } = await supabase
         .from('cards')
         .select('id, title, description, banner, section, source_section, final_order')
         .not('section', 'is', null)
+        .in('section', (await supabase
+          .from('card_sections')
+          .select('id')
+          .eq('book', currentBook.id)
+        ).data?.map(s => s.id) || [])  // Only cards from current book's sections
         .order('final_order', { ascending: true });
-      
+
       if (error) throw error;
       
       // Group cards by section
@@ -212,7 +223,7 @@ const Organize = () => {
       console.error('Error fetching organized cards:', error);
       return {};
     }
-  }, []);
+  }, [currentBook]);
   
   // Handle left to right card moves
   const handleLeftToRightMove = (source, destination, draggableId) => {
@@ -403,7 +414,7 @@ const Organize = () => {
       console.error('Error loading initial data:', error);
       updateOrganizeState({ isLoading: false });
     }
-  }, [fetchUnorganizedCards, fetchDestinationSections, fetchOrganizedCards, updateOrganizeState]);
+  }, [fetchUnorganizedCards, fetchDestinationSections, fetchOrganizedCards, updateOrganizeState, currentBook]);
 
   // Save all pending changes to database
   const handleSave = useCallback(async () => {
@@ -693,6 +704,28 @@ const Organize = () => {
       });
     }
   }, [organizeState, currentBook, updateOrganizeState, loadInitialData]);
+  
+  // Reset organize state when book changes
+  useEffect(() => {
+    if (currentBook) {
+      updateOrganizeState({
+        sourceSections: [],
+        destinationSections: [],
+        unorganizedCards: {},
+        organizedCards: {},
+        pendingCardMoves: [],
+        pendingSectionChanges: [],
+        pendingSectionCreations: [],
+        pendingSectionDeletions: [],
+        draggedCard: null,
+        draggedCardSection: null,
+        isSaving: false,
+        saveError: null,
+        isLoading: false,
+        forceUpdate: null
+      });
+    }
+  }, [currentBook?.id, updateOrganizeState]);
   
   // Initialize source sections and load data when sections change
   useEffect(() => {

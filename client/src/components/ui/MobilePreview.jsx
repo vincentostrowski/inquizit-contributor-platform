@@ -23,6 +23,15 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
   // Global toggle state that persists across views
   const [viewMode, setViewMode] = useState('cards'); // 'cards' or 'collapse'
 
+  // Reset data when book changes
+  React.useEffect(() => {
+    // Clear all data and reset to initial state
+    setCardSectionsData(null);
+    setCurrentView(VIEWS.BOOK_VIEW);
+    setSelectedSection(null);
+    setSelectedCard(null);
+  }, [bookData?.id]);
+
   // Function to determine if a color is light or dark (moved inline where needed)
   const getContrastColor = (hexColor) => {
     const hex = hexColor.replace('#', '');
@@ -37,6 +46,7 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
   const renderCurrentView = () => {
     switch (currentView) {
       case VIEWS.BOOK_VIEW:
+        
         return <BookView 
           bookData={bookData} 
           headerColor={headerColor}
@@ -54,8 +64,10 @@ const MobilePreview = ({ bookData, headerColor, backgroundEndColor, buttonTextBo
             setCurrentView(VIEWS.SECTION_VIEW);
           }}
           onDataLoaded={(data) => {
+            
             // Only update if we don't already have data or if it's different
             if (!cardSectionsData || JSON.stringify(cardSectionsData) !== JSON.stringify(data)) {
+              
               setCardSectionsData(data);
             }
           }}

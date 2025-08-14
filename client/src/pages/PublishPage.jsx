@@ -39,6 +39,12 @@ const PublishPage = () => {
       setBackgroundEndColor(currentBook.background_end_color || '#1E40AF');
       setButtonTextBorderColor(currentBook.button_text_border_color || '#6B7280');
       setButtonCircleColor(currentBook.button_circle_color || '#374151');
+    } else {
+      setBookData({
+        title: '',
+        description: '',
+        cover: ''
+      });
     }
   }, [currentBook]);
 
@@ -158,6 +164,7 @@ const PublishPage = () => {
       <div className="w-1/2 border-r border-gray-200">
         <div className="h-full bg-gray-50 flex items-center justify-center">
           <MobilePreview 
+            key={currentBook?.id} // Use currentBook.id as key to force re-render when book changes
             bookData={bookData} 
             headerColor={headerColor}
             backgroundEndColor={backgroundEndColor}
@@ -173,50 +180,6 @@ const PublishPage = () => {
           {/* Book Information Sections - Scrollable (including cover image) */}
           <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-8">
-                            {/* Cover Image Section */}
-              <div className="flex justify-center">
-                                  {/* Image Preview */}
-                  {bookData.cover && (
-                    <div className="mb-3">
-                      <img
-                        src={bookData.cover}
-                        alt="Book cover"
-                        className="w-64 h-80 object-fill rounded border border-gray-200"
-                      />
-                    </div>
-                  )}
-                
-                {/* Upload Area */}
-                <div 
-                  className="w-64 h-80 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer" 
-                  onClick={handleImageChange}
-                >
-                  {bookData.cover ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center">
-                      <p className="text-sm text-gray-600">
-                        Click to change cover image
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        PNG, JPG, GIF up to 5MB
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="text-gray-400 mb-2">
-                        <svg className="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        Click to upload cover image
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        PNG, JPG, GIF up to 5MB
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
               
               {/* Hidden file input */}
               <input
@@ -227,97 +190,117 @@ const PublishPage = () => {
                 className="hidden"
               />
               
-              {/* Remove Cover Button */}
-              {bookData.cover && (
-                <div className="flex justify-center">
-                  <button
-                    onClick={() => {
-                      setCoverFile(null);
-                      setBookData(prev => ({ ...prev, cover: '' }));
-                    }}
-                    className="text-sm text-red-600 hover:text-red-700 font-medium"
-                  >
-                    Remove cover image
-                  </button>
-                </div>
-              )}
-              
-              {/* Color Selector Section */}
+              {/* Book Theme Section */}
               <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
                 {/* Section Header - White background */}
                 <div className="bg-white px-4 py-3 border-b border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900">Color Scheme</h3>
+                  <h3 className="text-lg font-medium text-gray-900">Book Theme</h3>
                 </div>
                 
                 {/* Content Area - Gray background */}
-                <div className="py-4 px-4 space-y-4">
-                  {/* Header Color Picker */}
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Header Color
-                    </label>
-                    <div className="flex items-center space-x-3">
+                <div className="py-6 px-6 space-y-6">
+                  
+                  {/* Cover Image Section */}
+                  <div className="flex space-x-6">
+                    {/* Image Preview - Left Side */}
+                    {bookData.cover && (
+                      <div className="flex-shrink-0">
+                        <img
+                          src={bookData.cover}
+                          alt="Book cover"
+                          className="w-32 h-40 object-fill rounded border border-gray-200"
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Upload Area - Right Side */}
+                    <div 
+                      className="w-32 h-40 border-2 border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-gray-400 transition-colors cursor-pointer flex items-center justify-center" 
+                      onClick={handleImageChange}
+                    >
+                      {bookData.cover ? (
+                        <div className="text-center">
+                          <p className="text-xs text-gray-600">
+                            Click to change cover image
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            PNG, JPG, GIF up to 5MB
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <div className="text-gray-400 mb-2">
+                            <svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                          </div>
+                          <p className="text-xs text-gray-600">
+                            Click to upload cover image
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            PNG, JPG, GIF up to 5MB
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Color Options - Side by Side */}
+                  <div className="flex space-x-6">
+                    {/* Header Color */}
+                    <div className="flex flex-col items-center space-y-2">
+                      <label className="block text-xs font-medium text-gray-600">
+                        Header
+                      </label>
                       <input
                         type="color"
                         value={headerColor}
                         onChange={(e) => setHeaderColor(e.target.value)}
-                        className="w-12 h-12 rounded-lg border-2 border-gray-300 cursor-pointer"
+                        className="w-10 h-10 rounded-lg border-2 border-gray-300 cursor-pointer"
                         title="Header Color"
                       />
-                      <span className="text-sm text-gray-600 font-mono">{headerColor}</span>
                     </div>
-                  </div>
-                  
-                  {/* Background End Color Picker */}
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Background End Color
-                    </label>
-                    <div className="flex items-center space-x-3">
+                    
+                    {/* Background End Color */}
+                    <div className="flex flex-col items-center space-y-2">
+                      <label className="block text-xs font-medium text-gray-600">
+                        Background
+                      </label>
                       <input
                         type="color"
                         value={backgroundEndColor}
                         onChange={(e) => setBackgroundEndColor(e.target.value)}
-                        className="w-12 h-12 rounded-lg border-2 border-gray-300 cursor-pointer"
+                        className="w-10 h-10 rounded-lg border-2 border-gray-300 cursor-pointer"
                         title="Background End Color"
                       />
-                      <span className="text-sm text-gray-600 font-mono">{backgroundEndColor}</span>
-                      </div>
-                  </div>
-                  
-
-                  
-                  {/* Button Text & Border Color Picker */}
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Button Text & Border Color
-                    </label>
-                    <div className="flex items-center space-x-3">
+                    </div>
+                    
+                    {/* Button Text Border Color */}
+                    <div className="flex flex-col items-center space-y-2">
+                      <label className="block text-xs font-medium text-gray-600">
+                        Button Border
+                      </label>
                       <input
                         type="color"
                         value={buttonTextBorderColor}
                         onChange={(e) => setButtonTextBorderColor(e.target.value)}
-                        className="w-12 h-12 rounded-lg border-2 border-gray-300 cursor-pointer"
-                        title="Button Text & Border Color"
+                        className="w-10 h-10 rounded-lg border-2 border-gray-300 cursor-pointer"
+                        title="Button Text Border Color"
                       />
-                      <span className="text-sm text-gray-600 font-mono">{buttonTextBorderColor}</span>
                     </div>
-                  </div>
-                  
-                  {/* Button Circle Color Picker */}
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Button Circle Color
-                    </label>
-                    <div className="flex items-center space-x-3">
+                    
+                    {/* Button Circle Color */}
+                    <div className="flex flex-col items-center space-y-2">
+                      <label className="block text-xs font-medium text-gray-600">
+                        Button Circle
+                      </label>
                       <input
                         type="color"
                         value={buttonCircleColor}
                         onChange={(e) => setButtonCircleColor(e.target.value)}
-                        className="w-12 h-12 rounded-lg border-2 border-gray-300 cursor-pointer"
+                        className="w-10 h-10 rounded-lg border-2 border-gray-300 cursor-pointer"
                         title="Button Circle Color"
                       />
-                      <span className="text-sm text-gray-600 font-mono">{buttonCircleColor}</span>
                     </div>
                   </div>
                 </div>

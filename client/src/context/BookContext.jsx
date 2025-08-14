@@ -16,7 +16,6 @@ export const BookProvider = ({ children }) => {
   const [currentBook, setCurrentBook] = useState(null);
   const { bookId } = useUrlState();
 
-  // Sync URL to context - fetch book data when bookId changes
   useEffect(() => {
     const fetchBook = async () => {
       if (bookId && (!currentBook || currentBook.id !== bookId)) {
@@ -35,7 +34,6 @@ export const BookProvider = ({ children }) => {
         setCurrentBook(null);
       }
     };
-
     fetchBook();
   }, [bookId]);
 

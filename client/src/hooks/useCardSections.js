@@ -6,14 +6,13 @@ export const useCardSections = (book) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Fetch card sections when book changes
   useEffect(() => {
     if (book) {
       fetchCardSections();
     } else {
       setCardSections([]);
     }
-  }, [book?.id]); // Use book.id instead of book object
+  }, [book?.id]);
 
   const fetchCardSections = async () => {
     if (!book) return;
