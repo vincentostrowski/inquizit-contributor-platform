@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
 import SectionBrowser from '../components/sources/SectionBrowser';  
 import ContentDrawer from '../components/sources/ContentDrawer';
+import ImageUploadManager from '../components/sources/ImageUploadManager';
 import { useBook } from '../context/BookContext';
 import { useUrlState } from '../hooks/useUrlState';
 import { useSections } from '../hooks/useSections';
@@ -124,17 +125,27 @@ const Sources = () => {
   return (
     <div className="flex h-full">
       {/* Section Browser - Takes half the space */}
-      <div className="w-1/2">
-        <SectionBrowser 
-          onSectionSelect={handleSectionSelect}
-          selectedSection={selectedSection}
-          book={currentBook}
-          sections={sections}
-          onSectionsRefresh={handleSectionsRefresh}
-          onCreateSection={handleCreateSection}
-          onDeleteSection={handleDeleteSection}
-          onUpdateSection={handleUpdateSection}
-        />
+      <div className="w-1/2 flex flex-col h-full">
+        <div className="flex-1">
+          <SectionBrowser 
+            onSectionSelect={handleSectionSelect}
+            selectedSection={selectedSection}
+            book={currentBook}
+            sections={sections}
+            onSectionsRefresh={handleSectionsRefresh}
+            onCreateSection={handleCreateSection}
+            onDeleteSection={handleDeleteSection}
+            onUpdateSection={handleUpdateSection}
+          />
+        </div>
+        
+        {/* Image Upload Manager */}
+        <div className="mt-4 px-4 pb-4">
+          <ImageUploadManager 
+            sectionId={selectedSection?.id}
+            bookId={currentBook?.id}
+          />
+        </div>
       </div>
 
       {/* Content Area - Takes half the space */}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Card from '../Card';
+import ImageReferenceSelector from './ImageReferenceSelector';
 
 const CardTab = ({ formData, handleInputChange, handleGenerate, buildTitlePrompt, buildDescriptionPrompt, buildBannerPrompt }) => {
   const [titleCopied, setTitleCopied] = useState(false);
@@ -208,12 +209,15 @@ const CardTab = ({ formData, handleInputChange, handleGenerate, buildTitlePrompt
                 handleInputChange('banner', '');
                 handleInputChange('bannerFile', null);
               }}
-              className="mt-2 text-sm text-red-600 hover:text-red-700"
+              className="mt-3 w-full px-3 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors text-sm"
             >
-              Remove banner
+              Remove Banner Image
             </button>
           )}
         </div>
+
+        {/* Reference Images */}
+        <ImageReferenceSelector />
       </div>
     </div>
   );

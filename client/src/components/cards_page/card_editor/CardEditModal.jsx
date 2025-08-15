@@ -3,6 +3,7 @@ import { supabase } from '../../../services/supabaseClient';
 import CardTab from './CardTab';
 import ContentTab from './ContentTab';
 import QuizitTab from './QuizitTab';
+import ImageReferenceSelector from './ImageReferenceSelector';
 
 const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSection }) => {
   const [activeTab, setActiveTab] = useState('card'); // 'card', 'content', 'quizit'
@@ -228,21 +229,30 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   };
 
   const buildBannerPrompt = () => {
-    let prompt = "Generate a 16:9 landscape banner image for this concept card. The banner should contain only images/visual elements - no text whatsoever. The style should be visually appealing and relevant to the card's content.";
+    let prompt = "Generate a 25:9 landscape banner image for this concept card. The banner should contain only images/visual elements - no text whatsoever.";
     
-    prompt += `\n\nThe style should match the following reference images sent as well / pasted below`;
+    prompt += `\n\nIMPORTANT: Use the reference images provided below as your primary aesthetic guide. Study their visual style and apply these elements to your banner:`;
+    prompt += `\n\n• Color Palette: Match the dominant colors, color temperature, and saturation levels`;
+    prompt += `\n• Visual Style: Replicate the artistic style, texture, and rendering approach`;
+    prompt += `\n• Composition: Use similar line weights, shapes, and spatial relationships`;
+    prompt += `\n• Mood & Atmosphere: Capture the same emotional tone and visual feeling`;
+    prompt += `\n• Technical Elements: Match lighting, shadows, depth, and perspective techniques`;
+    
+    prompt += `\n\nYour banner should feel like it belongs in the same visual family as these reference images, while being relevant to the card's content.`;
     
     if (formData.title?.trim()) {
-      prompt += `\n\nTitle: ${formData.title}`;
+      prompt += `\n\nCard Title: ${formData.title}`;
     }
     
     if (formData.description?.trim()) {
-      prompt += `\n\nDescription: ${formData.description}`;
+      prompt += `\n\nCard Description: ${formData.description}`;
     }
     
     if (formData.card_idea?.trim()) {
-      prompt += `\n\nCard Idea: ${formData.card_idea}`;
+      prompt += `\n\nCard Concept: ${formData.card_idea}`;
     }
+    
+    prompt += `\n\nReference Images (study these for aesthetic guidance):`;
     
     return prompt;
   };
