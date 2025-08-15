@@ -293,6 +293,8 @@ const CardsPage = () => {
           title: updatedCard.title || '',
           description: updatedCard.description || '',
           prompt: updatedCard.prompt || '',
+          quizit_components: updatedCard.quizit_components || '',
+          words_to_avoid: updatedCard.words_to_avoid || '',
           content: updatedCard.content || '',
           order: updatedCard.order || cards.length + 1,
           card_idea: updatedCard.card_idea || '',
@@ -358,6 +360,8 @@ const CardsPage = () => {
           title: updatedCard.title || '',
           description: updatedCard.description || '',
           prompt: updatedCard.prompt || '',
+          quizit_components: updatedCard.quizit_components || '',
+          words_to_avoid: updatedCard.words_to_avoid || '',
           content: updatedCard.content || '',
           order: updatedCard.order || selectedCard.order,
           card_idea: updatedCard.card_idea || ''
@@ -441,7 +445,37 @@ const CardsPage = () => {
 
       // Persist quizit tests only on Save, if any are present
       const drafts = updatedCard?.pendingPromptTests;
-      if (cardId && drafts && drafts.promptHash) {
+      if (cardId && drafts && drafts.slots) {
+        // Generate hash from the new quizit fields
+        const components = updatedCard.quizit_components || '';
+        const wordsToAvoid = updatedCard.words_to_avoid || '';
+        const combinedContent = `Components:\n${components}\n\nWords to Avoid:\n${wordsToAvoid}`;
+        
+        // Simple hash function for consistency with UI (same as djb2 fallback)
+        const generateHash = (text) => {
+          let hash = 5381;
+          for (let i = 0; i < text.length; i += 1) {
+            hash = ((hash << 5) + hash) + text.charCodeAt(i);
+            hash |= 0; // force 32-bit
+          }
+          // Convert to hex string (same format as UI fallback)
+          return (hash >>> 0).toString(16).padStart(8, '0');
+        };
+        
+        const newPromptHash = generateHash(combinedContent);
+        
+        // First, delete any existing tests for this card (they're now irrelevant)
+        const { error: deleteError } = await supabase
+          .from('card_prompt_tests')
+          .delete()
+          .eq('card_id', cardId);
+        
+        if (deleteError) {
+          console.error('Error deleting old prompt tests:', deleteError);
+          // Continue anyway - we'll try to save new tests
+        }
+        
+        // Now save the new tests with the new hash
         const rows = [0,1,2,3,4]
           .map((slot) => {
             const s = drafts.slots?.[slot];
@@ -451,7 +485,7 @@ const CardsPage = () => {
             return {
               card_id: cardId,
               slot,
-              prompt_hash: drafts.promptHash,
+              prompt_hash: newPromptHash,
               quizit: s.quizit || '',
               reasoning: s.reasoning || '',
               feedback: s.feedback || '',
@@ -461,11 +495,11 @@ const CardsPage = () => {
           .filter(Boolean);
 
         if (rows.length > 0) {
-          const { error: upsertError } = await supabase
+          const { error: insertError } = await supabase
             .from('card_prompt_tests')
-            .upsert(rows, { onConflict: 'card_id,slot,prompt_hash' });
-          if (upsertError) {
-            console.error('Error upserting prompt tests:', upsertError);
+            .insert(rows);
+          if (insertError) {
+            console.error('Error inserting new prompt tests:', insertError);
           }
         }
       }
@@ -473,11 +507,12 @@ const CardsPage = () => {
       // Refresh cards and section default link
       await refreshCardsAndDefaultLink();
       
-      // Close modal
-      setIsModalOpen(false);
-      setSelectedCard(null);
+      // Return success - don't close modal
+      return { success: true };
     } catch (error) {
       console.error('Error saving card:', error);
+      // Return error - don't close modal
+      throw error;
     }
   };
 

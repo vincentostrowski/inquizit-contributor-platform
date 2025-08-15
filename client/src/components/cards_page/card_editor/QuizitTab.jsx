@@ -20,11 +20,13 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
   });
   const [isTesting, setIsTesting] = useState(false);
   const [currentHash, setCurrentHash] = useState(null);
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const [fieldsContentHash, setFieldsContentHash] = useState(null);
   const quizitRef = useRef(null);
   const reasoningRef = useRef(null);
   const promptRef = useRef(null);
+  const wordsToAvoidRef = useRef(null);
   const lastLoadedHashRef = useRef(null);
-  const prevPromptRef = useRef(formData?.prompt ?? '');
 
   const autoGrowEl = (el) => {
     if (!el) return;
@@ -54,6 +56,14 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     }
   };
 
+  // Generate hash from combined quizit fields
+  const generateQuizitHash = async () => {
+    const components = formData?.quizit_components || '';
+    const wordsToAvoid = formData?.words_to_avoid || '';
+    const combinedContent = `Components:\n${components}\n\nWords to Avoid:\n${wordsToAvoid}`;
+    return await sha256(combinedContent);
+  };
+
   const emitDraftChange = (hash = currentHash, localResults = quizitResults, localStates = testStates) => {
     if (!onTestsDraftChange) return;
     const slots = {};
@@ -73,6 +83,7 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
 
   // Hydrate local state from parent drafts (persists across tab switches)
   useEffect(() => {
+    
     if (!drafts) return;
     // If drafts has a promptHash or any slot content, hydrate
     const hasAny = !!drafts.promptHash || [0,1,2,3,4].some(i => {
@@ -81,6 +92,7 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     });
     if (!hasAny) return;
 
+    
     const nextStates = {
       0: { isTested: !!drafts.slots?.[0]?.isTested, isConfirmed: !!drafts.slots?.[0]?.confirmed },
       1: { isTested: !!drafts.slots?.[1]?.isTested, isConfirmed: !!drafts.slots?.[1]?.confirmed },
@@ -98,19 +110,36 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     setCurrentHash(drafts.promptHash || null);
     setTestStates(nextStates);
     setQuizitResults(nextResults);
+    setHasHydrated(true);
+    
+    // Set initial fields content hash after hydration
+    const components = formData?.quizit_components ?? '';
+    const wordsToAvoid = formData?.words_to_avoid ?? '';
+    const initialHash = `${components}|${wordsToAvoid}`;
+    setFieldsContentHash(initialHash);
+    
+    
   }, [drafts]);
 
+
+
   const handleTestClick = async (index) => {
-    if (!formData?.prompt || isTesting) return;
+    if (!formData?.quizit_components || !formData?.words_to_avoid || isTesting) return;
     setIsTesting(true);
     try {
       let hash = currentHash;
       if (!hash) {
-        hash = await sha256(formData.prompt || '');
+        hash = await generateQuizitHash();
         setCurrentHash(hash);
       }
+      
+      // Create combined content for the AI
+      const components = formData.quizit_components || '';
+      const wordsToAvoid = formData.words_to_avoid || '';
+      const combinedContent = `Components:\n${components}\n\nWords to Avoid:\n${wordsToAvoid}`;
+      
       const { data, error } = await supabase.functions.invoke('quizit-generate', {
-        body: { prompt: formData.prompt }
+        body: { prompt: combinedContent }
       });
       if (error) {
         console.error('Error generating quizit:', error);
@@ -178,14 +207,19 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
 
   const getStatusText = () => '';
 
-  // Reset slots only when the prompt text actually changes (not on mount/tab switch)
+  // Track field content changes to detect when tests should reset
   useEffect(() => {
-    const saved = savedPrompt ?? '';
-    const current = formData?.prompt ?? '';
-    const prev = prevPromptRef.current;
-    if (current !== prev) {
-      // Only clear if diverging from saved prompt; otherwise (revert), keep/hydrate
-      if (current !== saved) {
+    if (!hasHydrated) return;
+    
+    const components = formData?.quizit_components ?? '';
+    const wordsToAvoid = formData?.words_to_avoid ?? '';
+    const newHash = `${components}|${wordsToAvoid}`; // Simple string comparison for now
+    
+    // Only update if it's actually different
+    if (newHash !== fieldsContentHash) {
+      // If we had previous content (not initial load), clear tests
+      if (fieldsContentHash !== null) {
+
         const clearedStates = {
           0: { isTested: false, isConfirmed: false },
           1: { isTested: false, isConfirmed: false },
@@ -207,92 +241,17 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
         setIsTesting(false);
         emitDraftChange(null, clearedResults, clearedStates);
       }
-      prevPromptRef.current = current;
+      
+      setFieldsContentHash(newHash);
     }
-  }, [formData?.prompt, savedPrompt]);
+  }, [formData?.quizit_components, formData?.words_to_avoid, hasHydrated, fieldsContentHash]);
 
-  // When prompt equals saved prompt, auto-load saved tests from drafts or DB if local is empty
+  // Reset slots only when the quizit fields actually change (not on mount/tab switch)
   useEffect(() => {
-    const maybeLoadSaved = async () => {
-      if (!cardId) return;
-      const saved = savedPrompt ?? '';
-      const current = formData?.prompt ?? '';
-      if (current !== saved) return;
-      const hash = await sha256(saved || '');
-      const hasAnyLocal = [0,1,2,3,4].some(i => {
-        const r = quizitResults[i];
-        const s = testStates[i];
-        return (r?.quizit || r?.reasoning || r?.feedback || s?.isTested || s?.isConfirmed);
-      });
-      if (hasAnyLocal) return;
-
-      // Try drafts first if matching hash
-      if (drafts?.promptHash === hash) {
-        const nextStates = {
-          0: { isTested: !!drafts.slots?.[0]?.isTested, isConfirmed: !!drafts.slots?.[0]?.confirmed },
-          1: { isTested: !!drafts.slots?.[1]?.isTested, isConfirmed: !!drafts.slots?.[1]?.confirmed },
-          2: { isTested: !!drafts.slots?.[2]?.isTested, isConfirmed: !!drafts.slots?.[2]?.confirmed },
-          3: { isTested: !!drafts.slots?.[3]?.isTested, isConfirmed: !!drafts.slots?.[3]?.confirmed },
-          4: { isTested: !!drafts.slots?.[4]?.isTested, isConfirmed: !!drafts.slots?.[4]?.confirmed },
-        };
-        const nextResults = {
-          0: { quizit: drafts.slots?.[0]?.quizit || '', reasoning: drafts.slots?.[0]?.reasoning || '', feedback: drafts.slots?.[0]?.feedback || '' },
-          1: { quizit: drafts.slots?.[1]?.quizit || '', reasoning: drafts.slots?.[1]?.reasoning || '', feedback: drafts.slots?.[1]?.feedback || '' },
-          2: { quizit: drafts.slots?.[2]?.quizit || '', reasoning: drafts.slots?.[2]?.reasoning || '', feedback: drafts.slots?.[2]?.feedback || '' },
-          3: { quizit: drafts.slots?.[3]?.quizit || '', reasoning: drafts.slots?.[3]?.reasoning || '', feedback: drafts.slots?.[3]?.feedback || '' },
-          4: { quizit: drafts.slots?.[4]?.quizit || '', reasoning: drafts.slots?.[4]?.reasoning || '', feedback: drafts.slots?.[4]?.feedback || '' },
-        };
-        setCurrentHash(hash);
-        setTestStates(nextStates);
-        setQuizitResults(nextResults);
-        emitDraftChange(hash, nextResults, nextStates);
-        lastLoadedHashRef.current = hash;
-        return;
-      }
-
-      try {
-        // If we have already successfully loaded this hash and local is still empty, we can skip
-        if (lastLoadedHashRef.current === hash) return;
-        const { data, error } = await supabase
-          .from('card_prompt_tests')
-          .select('slot, quizit, reasoning, feedback, confirmed')
-          .eq('card_id', cardId)
-          .eq('prompt_hash', hash)
-          .order('slot', { ascending: true });
-        if (error) {
-          console.error('Error loading saved tests on revert:', error);
-          return;
-        }
-        const nextStates = {
-          0: { isTested: false, isConfirmed: false },
-          1: { isTested: false, isConfirmed: false },
-          2: { isTested: false, isConfirmed: false },
-          3: { isTested: false, isConfirmed: false },
-          4: { isTested: false, isConfirmed: false },
-        };
-        const nextResults = {
-          0: { quizit: '', reasoning: '', feedback: '' },
-          1: { quizit: '', reasoning: '', feedback: '' },
-          2: { quizit: '', reasoning: '', feedback: '' },
-          3: { quizit: '', reasoning: '', feedback: '' },
-          4: { quizit: '', reasoning: '', feedback: '' },
-        };
-        (data || []).forEach(row => {
-          nextStates[row.slot] = { isTested: !!(row.quizit || row.reasoning), isConfirmed: !!row.confirmed };
-          nextResults[row.slot] = { quizit: row.quizit || '', reasoning: row.reasoning || '', feedback: row.feedback || '' };
-        });
-        setCurrentHash(hash);
-        setTestStates(nextStates);
-        setQuizitResults(nextResults);
-        emitDraftChange(hash, nextResults, nextStates);
-        lastLoadedHashRef.current = hash;
-      } catch (e) {
-        console.error('Unexpected error loading saved tests on revert:', e);
-      }
-    };
-    maybeLoadSaved();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData?.prompt, savedPrompt, cardId]);
+    // This is now handled by the fieldsContentHash tracking above
+    // Keeping this for backward compatibility but it should not run
+    return;
+  }, [formData?.quizit_components, formData?.words_to_avoid, hasHydrated, currentHash, quizitResults]);
 
   // Auto-grow textareas on value changes
   useEffect(() => {
@@ -301,31 +260,55 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
       autoGrowEl(reasoningRef.current);
     }
     autoGrowEl(promptRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    autoGrowEl(wordsToAvoidRef.current);
+    
   }, [currentTestIndex, testStates[currentTestIndex]?.isTested, quizitResults[currentTestIndex]?.quizit, quizitResults[currentTestIndex]?.reasoning]);
 
   return (
     <div className="flex-1 p-6 overflow-y-auto">
-      {/* Prompt Input Section */}
+      {/* Quizit Components Section */}
       <div className="bg-white rounded-lg p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <label className="font-medium text-lg">Prompt</label>
+          <label className="font-medium text-lg">Quizit Configuration</label>
           <div className="flex items-center space-x-2">
-            {cardId && ((formData?.prompt ?? '') !== (savedPrompt ?? '')) && (
+            {cardId && (() => {
+              const hasChanges = (formData?.quizit_components ?? '') !== (savedPrompt?.quizit_components ?? '') || 
+                                (formData?.words_to_avoid ?? '') !== (savedPrompt?.words_to_avoid ?? '');
+              return hasChanges;
+            })() && (
               <button
                 onClick={async () => {
-                  // Reset prompt text first
-                  handleInputChange('prompt', savedPrompt || '');
+                  // Reset both new fields to saved values
+                  handleInputChange('quizit_components', savedPrompt?.quizit_components || '');
+                  handleInputChange('words_to_avoid', savedPrompt?.words_to_avoid || '');
 
                   // Reload saved tests from DB for the saved prompt
                   try {
-                    const hash = await sha256(savedPrompt || '');
+                    // Generate hash from saved values
+                    const components = savedPrompt?.quizit_components || '';
+                    const wordsToAvoid = savedPrompt?.words_to_avoid || '';
+                    const combinedContent = `Components:\n${components}\n\nWords to Avoid:\n${wordsToAvoid}`;
+                    
+                    // Simple hash function for consistency with save logic
+                    const generateHash = (text) => {
+                      let hash = 5381;
+                      for (let i = 0; i < text.length; i += 1) {
+                        hash = ((hash << 5) + hash) + text.charCodeAt(i);
+                        hash |= 0; // force 32-bit
+                      }
+                      return (hash >>> 0).toString(16).padStart(8, '0');
+                    };
+                    
+                    const hash = generateHash(combinedContent);
+                    
+                    // Fetch tests from database using the hash
                     const { data, error } = await supabase
                       .from('card_prompt_tests')
                       .select('slot, quizit, reasoning, feedback, confirmed')
                       .eq('card_id', cardId)
                       .eq('prompt_hash', hash)
                       .order('slot', { ascending: true });
+                    
                     if (error) {
                       console.error('Failed to load saved prompt tests on reset:', error);
                       // Still set hash and clear states so user can retest
@@ -348,6 +331,7 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
                       setQuizitResults(clearedResults);
                       emitDraftChange(hash, clearedResults, clearedStates);
                     } else {
+                      // Load the tests from database
                       const nextStates = {
                         0: { isTested: false, isConfirmed: false },
                         1: { isTested: false, isConfirmed: false },
@@ -362,14 +346,20 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
                         3: { quizit: '', reasoning: '', feedback: '' },
                         4: { quizit: '', reasoning: '', feedback: '' },
                       };
+                      
+                      // Populate with database data
                       (data || []).forEach(row => {
-                        nextStates[row.slot] = { isTested: !!(row.quizit || row.reasoning), isConfirmed: !!row.confirmed };
+                        nextStates[row.slot] = { 
+                          isTested: !!(row.quizit || row.reasoning), 
+                          isConfirmed: !!row.confirmed 
+                        };
                         nextResults[row.slot] = {
                           quizit: row.quizit || '',
                           reasoning: row.reasoning || '',
                           feedback: row.feedback || ''
                         };
                       });
+                      
                       setCurrentHash(hash);
                       setTestStates(nextStates);
                       setQuizitResults(nextResults);
@@ -396,7 +386,41 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
                   },
                   content: formData?.content || ''
                 };
-                const instructions = `You are given:\n\n- A **concept card** and\n- A **full explanatory write-up** of the idea from that card\n\n---\n\n### 🧠 Your Task\n\nWrite a prompt that will later be used to generate **multiple realistic scenarios** where the concept is relevant — without ever being named.\n\nThe goal of the prompt you write is to create situations that **test whether a reader can recognize and apply the concept on their own**.\n\n---\n\n### ✅ The Prompt You Write Should:\n\n- Ask for a **short and realistic scenario** (approximately 100 words)\n- Ask that the scenario be written in **second person** (“you notice...”) so that the **reader is the one placed in the situation**\n- Clearly **instruct not to use or reference any keywords, phrases, or examples** from the original concept or text (extract these from the card and content, and instruct for the created prompt to ask for them to not be used)\n- Ask for a situation where the concept is **present but hidden** — so that recognizing it requires thought, not recall\n- Prompt should be general-purpose — **no mention of specific workplaces, roles, industries, etc.**`;
+                
+                const instructions = `You are given a concept card and its explanation. Generate:
+
+1. A list of scenario components that would elicit this concept from a reader
+2. A list of words/phrases to avoid that would make the concept too obvious
+
+Components should be phrased as concrete situations involving people, not abstract concepts. For example, instead of "Presence of a bold pursuit", use "Person A has a bold pursuit in area X".
+
+Focus on general situations, not specific details like exact names, locations, or specific examples.
+
+For example, if testing for 'sunk cost fallacy', the components would be:
+- Person A has already invested time, money, effort, or resources in a project
+- Person A cannot recover that investment regardless of future actions  
+- Person A faces a current decision point whether to continue or stop
+- Person A sees evidence that continuing is unlikely to be worthwhile
+- Person A feels compelled to continue "to not waste" what's already invested
+
+And words to avoid would be:
+- "sunk cost"
+- "wasted investment" 
+- "throwing good money after bad"
+- etc.
+
+Return your response in this format:
+
+Components:
+- [component 1]
+- [component 2]
+...
+
+Words to Avoid:
+- [term 1]
+- [term 2]
+...`;
+                
                 const payload = `${instructions}\n\n---\n\nCard JSON:\n${JSON.stringify(cardJson, null, 2)}`;
                 navigator.clipboard.writeText(payload);
                 setPromptCopied(true);
@@ -417,15 +441,38 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
             </button>
           </div>
         </div>
-        <textarea
-          ref={promptRef}
-          value={(formData?.prompt) || ''}
-          onChange={(e) => handleInputChange('prompt', e.target.value)}
-          onInput={(e) => autoGrowEl(e.target)}
-          className="w-full p-4 border border-gray-300 rounded overflow-hidden resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          style={{ height: 'auto' }}
-          placeholder="Enter your quiz prompt here..."
-        />
+        
+        {/* Quizit Components Field */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Quizit Components</label>
+          <textarea
+            ref={promptRef}
+            value={(formData?.quizit_components) || ''}
+            onChange={(e) => {
+              handleInputChange('quizit_components', e.target.value);
+            }}
+            onInput={(e) => autoGrowEl(e.target)}
+            className="w-full p-4 border border-gray-300 rounded overflow-hidden resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            style={{ height: 'auto' }}
+            placeholder="Enter what the quiz should contain and how it should be structured..."
+          />
+        </div>
+
+        {/* Words/Phrases/Expressions to Avoid Field */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Words/Phrases/Expressions to Avoid</label>
+          <textarea
+            ref={wordsToAvoidRef}
+            value={(formData?.words_to_avoid) || ''}
+            onChange={(e) => {
+              handleInputChange('words_to_avoid', e.target.value);
+            }}
+            onInput={(e) => autoGrowEl(e.target)}
+            className="w-full p-4 border border-gray-300 rounded overflow-hidden resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            style={{ height: 'auto' }}
+            placeholder="Enter specific terms, concepts, and examples that should NOT be used in the generated scenarios..."
+          />
+        </div>
       </div>
 
       {/* Current Test Section */}
@@ -527,7 +574,7 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
             {!testStates[currentTestIndex]?.isTested ? (
               <button
                 onClick={() => handleTestClick(currentTestIndex)}
-                disabled={!formData?.prompt || isTesting}
+                disabled={!formData?.quizit_components || !formData?.words_to_avoid || isTesting}
                 className={`px-6 py-2 rounded disabled:bg-gray-300 disabled:cursor-not-allowed ${isTesting ? 'bg-blue-400 text-white' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
               >
                 {isTesting ? 'Testing…' : 'Test'}

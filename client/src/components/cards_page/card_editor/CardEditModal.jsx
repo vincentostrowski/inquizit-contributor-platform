@@ -12,6 +12,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     description: '',
     card_idea: '',
     prompt: '',
+    quizit_components: '',
+    words_to_avoid: '',
     content: '',
     order: '',
     banner: '',
@@ -27,6 +29,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   const [jsonInput, setJsonInput] = useState('');
   const [jsonCopied, setJsonCopied] = useState(false);
   const [jsonError, setJsonError] = useState(null);
+  const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'saving', 'success', 'error'
 
   // Update form data when card changes
   useEffect(() => {
@@ -36,6 +39,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         description: card.description || '',
         card_idea: card.card_idea || '',
         prompt: card.prompt || '',
+        quizit_components: card.quizit_components || '',
+        words_to_avoid: card.words_to_avoid || '',
         content: card.content || '',
         order: card.order || '',
         banner: card.banner || '',
@@ -53,33 +58,31 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       // Immediately clear drafts to prevent stale display while loading
       setPendingPromptTests(null);
 
-      // Load persisted quizit tests for the saved prompt (if existing card)
+      // Load persisted quizit tests for the saved quizit fields (if existing card)
       (async () => {
         try {
-          if (!card.id || !card.prompt) {
+          if (!card.id || (!card.quizit_components && !card.words_to_avoid)) {
             setPendingPromptTests(null);
             return;
           }
-          const sha256 = async (text) => {
-            const input = text || '';
-            try {
-              if (window?.crypto?.subtle) {
-                const data = new TextEncoder().encode(input);
-                const buf = await window.crypto.subtle.digest('SHA-256', data);
-                return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
-              }
-              throw new Error('subtle crypto unavailable');
-            } catch {
-              let hash = 5381;
-              for (let i = 0; i < input.length; i += 1) {
-                hash = ((hash << 5) + hash) + input.charCodeAt(i);
-                hash |= 0;
-              }
-              return (hash >>> 0).toString(16).padStart(8, '0');
+          
+          // Generate hash from the new quizit fields (same logic as save)
+          const components = card.quizit_components || '';
+          const wordsToAvoid = card.words_to_avoid || '';
+          const combinedContent = `Components:\n${components}\n\nWords to Avoid:\n${wordsToAvoid}`;
+          
+          // Simple hash function for consistency with save logic (same as djb2 fallback)
+          const generateHash = (text) => {
+            let hash = 5381;
+            for (let i = 0; i < text.length; i += 1) {
+              hash = ((hash << 5) + hash) + text.charCodeAt(i);
+              hash |= 0; // force 32-bit
             }
+            // Convert to hex string (same format as save logic)
+            return (hash >>> 0).toString(16).padStart(8, '0');
           };
-
-          const promptHash = await sha256(card.prompt || '');
+          
+          const promptHash = generateHash(combinedContent);
           const { data, error } = await supabase
             .from('card_prompt_tests')
             .select('slot, quizit, reasoning, feedback, confirmed')
@@ -297,6 +300,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       description: formData.description || '',
       card_idea: formData.card_idea || '',
       prompt: formData.prompt || '',
+      quizit_components: formData.quizit_components || '',
+      words_to_avoid: formData.words_to_avoid || '',
       content: formData.content || ''
     };
     return JSON.stringify(exportObj, null, 2);
@@ -311,7 +316,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         setJsonError('Invalid JSON: expected an object');
         return;
       }
-      const allowedKeys = ['title', 'description', 'card_idea', 'prompt', 'content'];
+      const allowedKeys = ['title', 'description', 'card_idea', 'prompt', 'quizit_components', 'words_to_avoid', 'content'];
       const updates = {};
       for (const key of allowedKeys) {
         if (Object.prototype.hasOwnProperty.call(parsed, key)) {
@@ -328,14 +333,23 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   };
 
 
-  const handleSave = () => {
-    onSave({
-      ...formData,
-      conversationLink: conversationLink,
-      pendingPromptTests
-    });
-    setShowLinkPanel(false); // Reset panel state
-    onClose();
+  const handleSave = async () => {
+    setSaveStatus('saving');
+    try {
+      await onSave({
+        ...formData,
+        conversationLink: conversationLink,
+        pendingPromptTests
+      });
+      setShowLinkPanel(false); // Reset panel state
+      setSaveStatus('success');
+      // Auto-reset success status after 3 seconds
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    } catch (error) {
+      setSaveStatus('error');
+      // Auto-reset error status after 5 seconds
+      setTimeout(() => setSaveStatus('idle'), 5000);
+    }
   };
 
   const handleDelete = () => {
@@ -349,8 +363,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="w-11/12 h-5/6 max-w-7xl flex flex-col bg-gray-100 rounded-lg">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="w-11/12 h-5/6 max-w-7xl flex flex-col bg-gray-100 rounded-lg" onClick={(e) => e.stopPropagation()}>
         {/* Slide-up Link Panel */}
         {showLinkPanel && (
           <div className="bg-gray-100 border-b border-gray-200 p-6 flex-none">
@@ -411,7 +425,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
                 <textarea
                   value={jsonInput}
                   onChange={(e) => setJsonInput(e.target.value)}
-                  placeholder='{"title": "...", "description": "...", "card_idea": "...", "prompt": "...", "content": "...", "banner": "...", "order": 1}'
+                  placeholder='{"title": "...", "description": "...", "card_idea": "...", "prompt": "...", "quizit_components": "...", "words_to_avoid": "...", "content": "...", "banner": "...", "order": 1}'
                   className="flex-1 p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[92px] resize-y"
                 />
                 <div className="flex flex-col space-y-2">
@@ -607,7 +621,10 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
               formData={formData}
               handleInputChange={handleInputChange}
               handleGenerate={handleGenerate}
-              savedPrompt={card?.prompt || ''}
+              savedPrompt={{
+                quizit_components: card?.quizit_components || '',
+                words_to_avoid: card?.words_to_avoid || ''
+              }}
               cardId={card?.id}
               drafts={pendingPromptTests}
               onTestsDraftChange={setPendingPromptTests}
@@ -636,9 +653,21 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
             )}
             <button
               onClick={handleSave}
-              className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
+              disabled={saveStatus === 'saving'}
+              className={`px-6 py-2 rounded transition-colors ${
+                saveStatus === 'saving' 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : saveStatus === 'success'
+                  ? 'bg-green-500 hover:bg-green-600'
+                  : saveStatus === 'error'
+                  ? 'bg-red-500 hover:bg-red-600'
+                  : 'bg-blue-500 hover:bg-blue-600'
+              } text-white`}
             >
-              Save
+              {saveStatus === 'saving' ? 'Saving...' : 
+               saveStatus === 'success' ? 'Saved!' : 
+               saveStatus === 'error' ? 'Error' : 
+               'Save'}
             </button>
           </div>
         </div>
