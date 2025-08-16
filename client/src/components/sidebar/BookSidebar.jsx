@@ -8,6 +8,9 @@ const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
   const [currentLevel, setCurrentLevel] = useState([]);
   const [loading, setLoading] = useState(false);
   const [books, setBooks] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState({ collections: [], books: [] });
+  const [isSearching, setIsSearching] = useState(false);
   const { currentBook } = useBook();
   const { selectBook } = useUrlState();
 
@@ -16,10 +19,12 @@ const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
     try {
       const savedState = localStorage.getItem('bookSidebarState');
       if (savedState) {
-        const { breadcrumbPath: savedPath, currentLevel: savedLevel, books: savedBooks } = JSON.parse(savedState);
+        const { breadcrumbPath: savedPath, currentLevel: savedLevel, books: savedBooks, searchQuery: savedSearch, searchResults: savedSearchResults } = JSON.parse(savedState);
         setBreadcrumbPath(savedPath || []);
         setCurrentLevel(savedLevel || []);
         setBooks(savedBooks || []);
+        setSearchQuery(savedSearch || '');
+        setSearchResults(savedSearchResults || { collections: [], books: [] });
         return true;
       }
     } catch (error) {
@@ -34,12 +39,143 @@ const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
       const stateToSave = {
         breadcrumbPath,
         currentLevel,
-        books
+        books,
+        searchQuery,
+        searchResults
       };
       localStorage.setItem('bookSidebarState', JSON.stringify(stateToSave));
     } catch (error) {
       console.error('Error saving sidebar state:', error);
     }
+  };
+
+  // Filter collections and books based on search query
+  const filteredCollections = currentLevel.filter(collection =>
+    collection.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredBooks = books.filter(book =>
+    book.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Check if we have any search results
+  const hasSearchResults = searchQuery === '' || filteredCollections.length > 0 || filteredBooks.length > 0;
+
+  // Global search across entire system
+  const globalSearch = async (query) => {
+    if (!query.trim()) return { collections: [], books: [] };
+    
+    setIsSearching(true);
+    
+    try {
+      // Search collections
+      const { data: collections } = await supabase
+        .from('collections')
+        .select('id, title, parent')
+        .ilike('title', `%${query}%`);
+        
+      // Search books  
+      const { data: books } = await supabase
+        .from('books')
+        .select('id, title, collection')
+        .ilike('title', `%${query}%`);
+        
+      return { 
+        collections: collections || [], 
+        books: books || [] 
+      };
+    } catch (error) {
+      console.error('Global search error:', error);
+      return { collections: [], books: [] };
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Build full path to a collection by recursively fetching parents
+  const buildPathToCollection = async (collectionId) => {
+    const path = [];
+    let currentId = collectionId;
+    
+    while (currentId) {
+      const { data: collection } = await supabase
+        .from('collections')
+        .select('id, title, parent')
+        .eq('id', currentId)
+        .single();
+        
+      if (collection) {
+        path.unshift(collection);
+        currentId = collection.parent;
+      } else {
+        break;
+      }
+    }
+    
+    return path;
+  };
+
+  // Handle search input changes
+  const handleSearchChange = async (query) => {
+    setSearchQuery(query);
+    
+    if (query.trim()) {
+      const results = await globalSearch(query);
+      setSearchResults(results);
+    } else {
+      setSearchResults({ collections: [], books: [] });
+    }
+  };
+
+  // Debounced search to avoid excessive API calls
+  const debouncedSearch = React.useCallback(
+    React.useMemo(
+      () => {
+        let timeoutId;
+        return (query) => {
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => handleSearchChange(query), 300);
+        };
+      },
+      []
+    ),
+    []
+  );
+
+  // Handle search input with debouncing
+  const handleSearchInput = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    debouncedSearch(query);
+  };
+
+  // Navigate to search result naturally through hierarchy
+  const navigateToSearchResult = async (item, type) => {
+    setLoading(true);
+    
+    if (type === 'collection') {
+      // Build path to collection and navigate there
+      const path = await buildPathToCollection(item.id);
+      setBreadcrumbPath(path);
+      await fetchCollections(item.id);
+      await fetchBooks(item.id);
+    } else if (type === 'book') {
+      // Build path to book's collection and navigate there
+      const path = await buildPathToCollection(item.collection);
+      setBreadcrumbPath(path);
+      await fetchCollections(item.collection);
+      await fetchBooks(item.collection);
+      // Select the book
+      selectBook(item.id);
+    }
+    
+    // Clear search and results
+    setSearchQuery('');
+    setSearchResults({ collections: [], books: [] });
+    setLoading(false);
+    
+    // Save state after navigation
+    setTimeout(() => saveCurrentState(), 100);
   };
 
   // Fetch collections for a specific parent
@@ -85,6 +221,9 @@ const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
     const newPath = [...breadcrumbPath, collection];
     setBreadcrumbPath(newPath);
     
+    // Clear search when navigating to new collection
+    setSearchQuery('');
+    
     await fetchCollections(collection.id);
     await fetchBooks(collection.id);
     setLoading(false);
@@ -99,15 +238,16 @@ const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
     const newPath = breadcrumbPath.slice(0, levelIndex + 1);
     setBreadcrumbPath(newPath);
     
-    if (levelIndex === -1) {
-      // Go back to root
-      await fetchCollections(null);
-      setBooks([]); // Clear books when going to root
-    } else {
-      // Go back to specific level
-      const targetCollection = newPath[newPath.length - 1];
+    // Clear search when navigating back
+    setSearchQuery('');
+    
+    const targetCollection = newPath[newPath.length - 1];
+    if (targetCollection) {
       await fetchCollections(targetCollection.id);
       await fetchBooks(targetCollection.id);
+    } else {
+      await fetchCollections();
+      setBooks([]);
     }
     setLoading(false);
     
@@ -175,6 +315,36 @@ const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
           {/* Content - Hidden when closed */}
           {isOpen && (
             <div className="flex flex-col h-full">
+              {/* Search Bar - Moved to top */}
+              <div className="p-4 border-b border-gray-100 bg-gray-50">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search collections and books..."
+                    value={searchQuery}
+                    onChange={handleSearchInput}
+                    className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                  {/* Search Icon */}
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  {/* Clear Button */}
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {/* Breadcrumb Navigation */}
               {breadcrumbPath.length > 0 && (
                 <div className="p-4 border-b border-gray-100 bg-gray-50">
@@ -206,7 +376,66 @@ const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                   </div>
+                ) : searchQuery ? (
+                  // Search Results View
+                  <div className="space-y-2">
+                    {/* Search Results Header */}
+                    <div className="text-sm text-gray-500 mb-3">
+                      {isSearching ? 'Searching...' : `Found ${searchResults.collections.length + searchResults.books.length} results`}
+                    </div>
+                    
+                    {/* Collections in Search Results */}
+                    {searchResults.collections.map((collection) => (
+                      <div 
+                        key={collection.id} 
+                        className="p-3 rounded-lg hover:bg-gray-50 cursor-pointer flex items-center justify-between group"
+                        onClick={() => navigateToSearchResult(collection, 'collection')}
+                      >
+                        <span className="flex items-center">
+                          <span className="mr-2">📁</span>
+                          <div>
+                            <div className="font-medium">{collection.title}</div>
+                            <div className="text-xs text-gray-500">Collection</div>
+                          </div>
+                        </span>
+                        <svg className="w-4 h-4 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    ))}
+
+                    {/* Books in Search Results */}
+                    {searchResults.books.map((book) => (
+                      <div 
+                        key={book.id} 
+                        className={`p-3 rounded-lg cursor-pointer flex items-center justify-between group ${
+                          currentBook?.id === book.id 
+                            ? 'bg-blue-100 border border-blue-300' 
+                            : 'hover:bg-gray-50'
+                        }`}
+                        onClick={() => navigateToSearchResult(book, 'book')}
+                      >
+                        <span className="flex items-center">
+                          <span className="mr-2">📖</span>
+                          <div>
+                            <div className="font-medium">{book.title}</div>
+                            <div className="text-xs text-gray-500">Book</div>
+                          </div>
+                        </span>
+                      </div>
+                    ))}
+
+                    {/* No Search Results */}
+                    {!isSearching && searchResults.collections.length === 0 && searchResults.books.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <div className="mb-2">🔍</div>
+                        <div>No results found for "{searchQuery}"</div>
+                        <div className="text-sm mt-1">Try a different search term</div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
+                  // Normal View (Current Level)
                   <div className="space-y-2">
                     {/* Collections */}
                     {currentLevel.map((collection) => (

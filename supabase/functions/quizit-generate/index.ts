@@ -1,5 +1,5 @@
-// Minimal edge function for testing Prompt tab
-// Input: { prompt: string }
+// Refactored edge function for generating quizit scenarios
+// Input: { components: string, wordsToAvoid: string }
 // Output: { quizit: string, reasoning: string }
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -16,10 +16,10 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt } = await req.json()
-    if (!prompt || typeof prompt !== 'string') {
+    const { components, wordsToAvoid } = await req.json()
+    if (!components || typeof components !== 'string') {
       return new Response(
-        JSON.stringify({ error: 'Missing prompt' }),
+        JSON.stringify({ error: 'Missing components' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -33,7 +33,24 @@ serve(async (req) => {
     }
 
     const system = `You are a JSON-only responder. You ALWAYS return a single JSON object with exactly two string fields: "quizit" and "reasoning". No markdown, no prose outside JSON, no extra keys.`
-    const user = `Write a single realistic scenario (90-120 words) in second person ("you...") where the concept is present but hidden. Do NOT name the concept or use any keywords/phrases/examples from the source. Keep it general-purpose with no specific industry/role.\n\nReturn strictly JSON as:\n{"quizit":"...","reasoning":"..."}\n\nPrompt:\n${prompt}`
+    
+    const user = `Write a short, realistic scenario of about 100 words, written in second person ("you…"), in which the central idea is present but never directly named.
+
+The scenario should incorporate these key elements:
+${components}
+
+Do not use or reference any of the following words, phrases, or examples:
+${wordsToAvoid}
+
+Keep the language simple and direct. Be concise and avoid verbose or complicated phrasing. Use clear, straightforward language that a general audience can easily understand.
+
+Return strictly JSON as:
+{"quizit":"...","reasoning":"..."}
+
+For the reasoning field, explain how someone would recognize the underlying concept in this situation and how they would use that concept to reason about or react to what's happening.`
+
+    // Log the final prompt for debugging
+    console.log('Sending to ChatGPT:', user);
 
     const resp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',

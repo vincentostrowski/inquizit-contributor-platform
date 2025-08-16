@@ -138,8 +138,13 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
       const wordsToAvoid = formData.words_to_avoid || '';
       const combinedContent = `Components:\n${components}\n\nWords to Avoid:\n${wordsToAvoid}`;
       
+
+      
       const { data, error } = await supabase.functions.invoke('quizit-generate', {
-        body: { prompt: combinedContent }
+        body: { 
+          components: formData.quizit_components || '',
+          wordsToAvoid: formData.words_to_avoid || ''
+        }
       });
       if (error) {
         console.error('Error generating quizit:', error);
