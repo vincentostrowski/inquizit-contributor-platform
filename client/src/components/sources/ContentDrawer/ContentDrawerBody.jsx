@@ -15,7 +15,7 @@ const ContentDrawerBody = ({ selectedSection, sections, onCharacterCountChange }
   };
 
   return (
-    <div className="flex-1 p-4">
+    <div className="flex-1 p-4 overflow-hidden">
       <div className="h-full flex flex-col">
         {/* Fixed height TextEditor */}
         <div className="h-96 mb-4">
@@ -27,7 +27,7 @@ const ContentDrawerBody = ({ selectedSection, sections, onCharacterCountChange }
         </div>
         
         {/* Scrollable sections container */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-scroll">
           <NotesSection 
             section={selectedSection} 
             selectedSnippet={selectedSnippet}
