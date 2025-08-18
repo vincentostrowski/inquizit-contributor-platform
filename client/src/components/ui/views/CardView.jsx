@@ -1,11 +1,8 @@
 import React from 'react';
 import MobileHeader from '../MobileHeader';
+import FullCard from './CardView/FullCard';
 
 const CardView = ({ card, onBack, headerColor, backgroundEndColor, buttonTextBorderColor, buttonCircleColor, bookData, cardSections }) => {
-  // Find the card content from the passed data instead of fetching
-  const cardWithContent = cardSections?.flatMap(section => section.cards).find(c => c.id === card?.id);
-  const content = cardWithContent?.content;
-
   if (!card) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -24,78 +21,39 @@ const CardView = ({ card, onBack, headerColor, backgroundEndColor, buttonTextBor
         onBack={onBack}
       />
       
-      
       <div className="flex-1 overflow-y-auto min-h-0 relative p-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pb-32">
 
-        {/* Background gradient - positioned as background */}
+        {/* Background gradient with book cover overlay - positioned as background */}
         <div 
-            className="absolute -top-0 left-0 w-full h-52 z-0 rounded-b-[15%]"
-            style={{
-              background: `linear-gradient(to bottom, ${headerColor}, ${backgroundEndColor})`
-            }}
-          />
-
-        {/* Card Content - using SectionCard design */}
-        <div className="bg-orange-50 rounded-lg border border-gray-200 p-4 shadow-sm max-w-md mx-auto w-72 relative">
-          {/* Cover Image Container - Relative for positioning */}
-          <div className="relative w-full h-32 mb-4">
-            {/* Card Banner - Background */}
-            <div className="w-full h-32 bg-gray-200 rounded-md overflow-hidden">
-              {card.banner || card.coverURL ? (
-                <img 
-                  src={card.banner || card.coverURL} 
-                  alt={card.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center">
-                  <span className="text-gray-500 text-2xl">📚</span>
-                </div>
-              )}
-            </div>
-            
-            {/* Book Cover - Positioned in front */}
-            {bookData?.cover && (
-              <div className="absolute bottom-1 left-1 w-18 h-26">
-                <img
-                  src={bookData.cover}
-                  alt="Book cover"
-                  className="w-full h-full object-fill rounded-md border border-gray-200"
-                />
-              </div>
-            )}
-          </div>
-          
-          {/* Title */}
-          <div className="text-lg font-medium text-gray-800 mb-3 text-center">
-            {card.title}
-          </div>
-          
-          {/* Description */}
-          {card.description && (
-            <div className="text-sm text-gray-600 mb-4 leading-relaxed">
-              {card.description}
-            </div>
-          )}
-          
-          {/* Inquizit Badge */}
-          <div className="flex justify-end">
-            <span className="text-xs font-medium px-2 py-1 text-gray-500">
-              Inquizit
-            </span>
-          </div>
+          className="absolute -top-0 left-0 w-full h-52 z-0 rounded-b-[15%]"
+          style={{
+            background: bookData?.cover || bookData?.banner ? 
+              `linear-gradient(to bottom, ${headerColor}, ${backgroundEndColor})` :
+              `linear-gradient(to bottom, ${headerColor}, ${backgroundEndColor})`
+          }}
+        >
         </div>
 
+        {/* Use FullCard for the card content display */}
+        <FullCard card={card} />
+
         {/* Card Content Section */}
-        {/* contentLoading and contentError are removed as they are no longer fetched */}
-        
-        {content && (
-          <div className="mt-6">
-              <div className="text-gray-700 leading-relaxed text-xs whitespace-pre-wrap">
-                {content}
+        {(() => {
+          // Find the card content from the passed data
+          const cardWithContent = cardSections?.flatMap(section => section.cards).find(c => c.id === card?.id);
+          const content = cardWithContent?.content;
+          
+          if (content) {
+            return (
+              <div className="mt-6">
+                <div className="text-gray-700 leading-relaxed text-xs whitespace-pre-wrap">
+                  {content}
+                </div>
               </div>
-            </div>
-        )}
+            );
+          }
+          return null;
+        })()}
       </div>
     </div>
   );

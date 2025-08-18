@@ -1,74 +1,47 @@
 import React from 'react';
 
-const FullCard = ({ card, onBack }) => {
+const FullCard = ({ card }) => {
   if (!card) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-gray-500">No card selected</div>
-      </div>
-    );
+    return null;
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center p-4 border-b border-gray-200">
-        <button
-          onClick={onBack}
-          className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <h2 className="ml-3 text-lg font-semibold text-gray-900">Card Details</h2>
-      </div>
-
-      {/* Card Content */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {/* Cover Image */}
-        {card.banner && (
-          <div className="mb-6">
-            <img
-              src={card.banner}
+    <div className="bg-orange-50 rounded-lg border border-gray-200 p-4 shadow-sm max-w-md mx-auto w-72 relative">
+      {/* Cover Image Container - Relative for positioning */}
+      <div className="relative w-full h-32 mb-4">
+        {/* Card Banner - Background */}
+        <div className="w-full h-32 bg-gray-200 rounded-md overflow-hidden">
+          {card.banner || card.coverURL ? (
+            <img 
+              src={card.banner || card.coverURL} 
               alt={card.title}
-              className="w-full h-48 object-cover rounded-lg shadow-sm"
+              className="w-full h-full object-cover"
             />
-          </div>
-        )}
-
-        {/* Title */}
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">{card.title}</h1>
-        </div>
-
-        {/* Description */}
-        {card.description && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Description</h3>
-            <p className="text-gray-700 leading-relaxed">{card.description}</p>
-          </div>
-        )}
-
-        {/* Card Idea */}
-        {card.card_idea && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Card Idea</h3>
-            <p className="text-gray-700 leading-relaxed">{card.card_idea}</p>
-          </div>
-        )}
-
-        {/* Metadata */}
-        <div className="border-t border-gray-200 pt-4">
-          <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-            <div>
-              <span className="font-medium">Order:</span> {card.final_order || card.order}
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center">
+              <span className="text-gray-500 text-2xl">📚</span>
             </div>
-            <div>
-              <span className="font-medium">ID:</span> {card.id}
-            </div>
-          </div>
+          )}
         </div>
+      </div>
+      
+      {/* Title */}
+      <div className="text-lg font-medium text-gray-800 mb-3 text-center">
+        {card.title}
+      </div>
+      
+      {/* Description */}
+      {card.description && (
+        <div className="text-sm text-gray-600 mb-4 leading-relaxed">
+          {card.description}
+        </div>
+      )}
+      
+      {/* Inquizit Badge */}
+      <div className="flex justify-end">
+        <span className="text-xs font-medium px-2 py-1 text-gray-500">
+          Inquizit
+        </span>
       </div>
     </div>
   );
