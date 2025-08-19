@@ -5,7 +5,30 @@ import ContentTab from './ContentTab';
 import QuizitTab from './QuizitTab';
 import ImageReferenceSelector from './ImageReferenceSelector';
 
-const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSection }) => {
+// Field completion toggle component
+const FieldCompletionToggle = ({ field, isCompleted, onToggle, label }) => (
+  <div className="flex items-center space-x-2 mb-2">
+    <button
+      onClick={() => onToggle(field, !isCompleted)}
+      className={`w-4 h-4 rounded border-2 transition-colors ${
+        isCompleted 
+          ? 'bg-green-500 border-green-500' 
+          : 'bg-white border-gray-300 hover:border-gray-400'
+      }`}
+    >
+      {isCompleted && (
+        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+        </svg>
+      )}
+    </button>
+    <span className="text-sm text-gray-600">
+      Mark {label} as complete
+    </span>
+  </div>
+);
+
+const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSection, completionData, onCompletionUpdate }) => {
   const [activeTab, setActiveTab] = useState('card'); // 'card', 'content', 'quizit'
   const [formData, setFormData] = useState({
     title: '',
@@ -30,6 +53,37 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   const [jsonCopied, setJsonCopied] = useState(false);
   const [jsonError, setJsonError] = useState(null);
   const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'saving', 'success', 'error'
+  
+  // Completion tracking state - persists across tab changes
+  const [fieldCompletion, setFieldCompletion] = useState({
+    title: false,
+    description: false,
+    content: false,
+    banner: false,
+    quizit_configuration: false
+  });
+
+  // Update fieldCompletion when completionData changes
+  useEffect(() => {
+    if (completionData) {
+      const newFieldCompletion = {
+        title: !!completionData.title_completed,
+        description: !!completionData.description_completed,
+        content: !!completionData.content_completed,
+        banner: !!completionData.banner_completed,
+        quizit_configuration: !!completionData.quizit_configuration_completed
+      };
+      setFieldCompletion(newFieldCompletion);
+    } else {
+      setFieldCompletion({
+        title: false,
+        description: false,
+        content: false,
+        banner: false,
+        quizit_configuration: false
+      });
+    }
+  }, [completionData, card?.id]);
 
   // Update form data when card changes
   useEffect(() => {
@@ -112,8 +166,105 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
           setPendingPromptTests(null);
         }
       })();
+
+      // Load completion tracking for the card
+      if (card.id) {
+        // Completion tracking is now handled by the completionData prop
+      } else {
+        // For new cards, completion tracking will be initialized by the prop effect
+      }
     }
   }, [card]);
+
+  // Handle field completion toggle
+  const handleFieldCompletionToggle = (fieldName, isCompleted) => {
+    setFieldCompletion(prev => ({
+      ...prev,
+      [fieldName]: isCompleted
+    }));
+  };
+
+  // Check if all fields are completed
+  const areAllFieldsCompleted = () => {
+    // For quizit_configuration, check if both quizit fields have content AND all 5 tests are completed/confirmed
+    const quizitFieldsComplete = formData.quizit_components && formData.words_to_avoid;
+    
+    // Check if all 5 tests are completed and confirmed (if we have pendingPromptTests)
+    const allTestsCompleted = pendingPromptTests?.slots && 
+      [0, 1, 2, 3, 4].every(index => 
+        pendingPromptTests.slots[index]?.isTested && pendingPromptTests.slots[index]?.confirmed
+      );
+    
+    const quizitCompleted = quizitFieldsComplete && allTestsCompleted;
+    
+    const adjustedCompletion = {
+      ...fieldCompletion,
+      quizit_configuration: quizitCompleted
+    };
+    return Object.values(adjustedCompletion).every(completed => completed);
+  };
+
+  // Get completion percentage
+  const getCompletionPercentage = () => {
+    const totalFields = Object.keys(fieldCompletion).length;
+    // For quizit_configuration, check if both quizit fields have content AND all 5 tests are completed/confirmed
+    const quizitFieldsComplete = formData.quizit_components && formData.words_to_avoid;
+    
+    // Check if all 5 tests are completed and confirmed (if we have pendingPromptTests)
+    const allTestsCompleted = pendingPromptTests?.slots && 
+      [0, 1, 2, 3, 4].every(index => 
+        pendingPromptTests.slots[index]?.isTested && pendingPromptTests.slots[index]?.confirmed
+      );
+    
+    const quizitCompleted = quizitFieldsComplete && allTestsCompleted;
+    
+    const adjustedCompletion = {
+      ...fieldCompletion,
+      quizit_configuration: quizitCompleted
+    };
+    const completedFields = Object.values(adjustedCompletion).filter(completed => completed).length;
+    return (completedFields / totalFields) * 100;
+  };
+
+  // Save completion tracking to database
+  const saveCompletionTracking = async (cardId) => {
+    try {
+      // Calculate is_completed based on all individual fields
+      const isCompleted = Object.values(fieldCompletion).every(completed => completed);
+      
+      // Always upsert (insert or update) completion tracking
+      const { data, error } = await supabase
+        .from('card_completion_tracking')
+        .upsert({
+          card_id: cardId,
+          title_completed: fieldCompletion.title,
+          description_completed: fieldCompletion.description,
+          content_completed: fieldCompletion.content,
+          banner_completed: fieldCompletion.banner,
+          quizit_configuration_completed: fieldCompletion.quizit_configuration,
+          is_completed: isCompleted,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'card_id'
+        })
+        .select();
+      
+      if (error) {
+        console.error('Error saving completion tracking:', error);
+        throw error;
+      }
+      
+      // Notify parent component of the updated completion data
+      if (onCompletionUpdate && data && data[0]) {
+        onCompletionUpdate(cardId, data[0]);
+      } else {
+        // console.log('NOT calling onCompletionUpdate - missing data or callback');
+      }
+    } catch (error) {
+      console.error('Error saving completion tracking:', error);
+      throw error; // Re-throw to be handled by the save function
+    }
+  };
 
   // Reset panel state when modal opens/closes
   useEffect(() => {
@@ -127,14 +278,57 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       setLinkInput('');
       // Clear any pending quizit drafts to avoid stale hydration on next open
       setPendingPromptTests(null);
+      // Reset completion tracking state when modal closes
+      setFieldCompletion({
+        title: false,
+        description: false,
+        content: false,
+        banner: false,
+        quizit_configuration: false
+      });
     }
   }, [isOpen]);
 
+  // Handle input changes
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+    
+    // Auto-uncheck completion if this field was marked complete and has changed
+    if (fieldCompletion[field]) {
+      setFieldCompletion(prev => ({
+        ...prev,
+        [field]: false
+      }));
+    }
+    
+    // For quizit configuration, uncheck if either quizit field changes
+    if ((field === 'quizit_components' || field === 'words_to_avoid') && fieldCompletion.quizit_configuration) {
+      setFieldCompletion(prev => ({
+        ...prev,
+        quizit_configuration: false
+      }));
+    }
+  };
+
+  // Handle test confirmation changes (called from QuizitTab)
+  const handleTestConfirmationChange = () => {
+    // Auto-uncheck quizit configuration if it was marked complete but tests are no longer all confirmed
+    if (fieldCompletion.quizit_configuration) {
+      const allTestsCompleted = pendingPromptTests?.slots && 
+        [0, 1, 2, 3, 4].every(index => 
+          pendingPromptTests.slots[index]?.isTested && pendingPromptTests.slots[index]?.confirmed
+        );
+      
+      if (!allTestsCompleted) {
+        setFieldCompletion(prev => ({
+          ...prev,
+          quizit_configuration: false
+        }));
+      }
+    }
   };
 
   const handleGenerate = (field) => {
@@ -281,12 +475,11 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   const copyPromptToClipboard = async (prompt, promptType) => {
     try {
       await navigator.clipboard.writeText(prompt);
-      setCopiedPrompt(promptType);
       // prompt copied
       
       // Reset the copied state after 2 seconds
       setTimeout(() => {
-        setCopiedPrompt(null);
+        // setCopiedPrompt(null); // This line was removed as per the edit hint
       }, 2000);
     } catch (error) {
       console.error('Failed to copy prompt:', error);
@@ -336,16 +529,27 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   const handleSave = async () => {
     setSaveStatus('saving');
     try {
-      await onSave({
+      const savedCard = await onSave({
         ...formData,
         conversationLink: conversationLink,
         pendingPromptTests
       });
+      
+      // Save completion tracking after card is saved
+      if (savedCard?.card?.id) {
+        await saveCompletionTracking(savedCard.card.id);
+      } else if (savedCard?.id) {
+        await saveCompletionTracking(savedCard.id);
+      } else {
+        // console.log('No savedCard.id found, skipping completion tracking save');
+      }
+      
       setShowLinkPanel(false); // Reset panel state
       setSaveStatus('success');
       // Auto-reset success status after 3 seconds
       setTimeout(() => setSaveStatus('idle'), 3000);
     } catch (error) {
+      console.error('Error in handleSave:', error);
       setSaveStatus('error');
       // Auto-reset error status after 5 seconds
       setTimeout(() => setSaveStatus('idle'), 5000);
@@ -606,6 +810,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
               buildTitlePrompt={buildTitlePrompt}
               buildDescriptionPrompt={buildDescriptionPrompt}
               buildBannerPrompt={buildBannerPrompt}
+              fieldCompletion={fieldCompletion}
+              onFieldCompletionToggle={handleFieldCompletionToggle}
             />
           )}
           {activeTab === 'content' && (
@@ -614,6 +820,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
               handleInputChange={handleInputChange}
               handleGenerate={handleGenerate}
               buildContentPrompt={buildContentPrompt}
+              fieldCompletion={fieldCompletion}
+              onFieldCompletionToggle={handleFieldCompletionToggle}
             />
           )}
           {activeTab === 'quizit' && (
@@ -628,6 +836,9 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
               cardId={card?.id}
               drafts={pendingPromptTests}
               onTestsDraftChange={setPendingPromptTests}
+              fieldCompletion={fieldCompletion}
+              onFieldCompletionToggle={handleFieldCompletionToggle}
+              onTestConfirmationChange={handleTestConfirmationChange}
             />
           )}
         </div>
@@ -641,16 +852,22 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
                 onClick={handleDelete}
                 className="px-6 py-2 border border-red-300 text-red-600 rounded hover:bg-red-50 transition-colors"
               >
-                Delete Card
+                Delete
               </button>
             )}
           </div>
-          <div className="flex space-x-3">
-            {activeTab === 'quizit' && (
-              <button className="bg-black text-white px-6 py-2 rounded hover:bg-gray-800">
-                Mark as Done
-              </button>
-            )}
+          <div className="flex items-center space-x-3">
+            {/* Field status indicators */}
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              {Object.entries(fieldCompletion).map(([field, completed]) => (
+                <div key={field} className="flex items-center space-x-1">
+                  <span className={`w-2 h-2 rounded-full ${completed ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <span className="capitalize text-gray-600">
+                    {field === 'quizit_configuration' ? 'Quizit Config' : field.replace('_', ' ')}
+                  </span>
+                </div>
+              ))}
+            </div>
             <button
               onClick={handleSave}
               disabled={saveStatus === 'saving'}

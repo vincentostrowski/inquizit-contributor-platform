@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../services/supabaseClient';
 
-const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftChange, savedPrompt, drafts, cardId }) => {
+const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftChange, savedPrompt, drafts, cardId, fieldCompletion = {}, onFieldCompletionToggle, onTestConfirmationChange }) => {
   const [currentTestIndex, setCurrentTestIndex] = useState(0);
   const [testStates, setTestStates] = useState({
     0: { isTested: false, isConfirmed: false },
@@ -79,6 +79,20 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
       };
     });
     onTestsDraftChange({ promptHash: hash, slots });
+  };
+
+  // Check if all tests are completed and confirmed
+  const areAllTestsConfirmed = () => {
+    // Use parent state (drafts) if available, otherwise fall back to local state
+    if (drafts?.slots) {
+      return [0, 1, 2, 3, 4].every(index => 
+        drafts.slots[index]?.isTested && drafts.slots[index]?.confirmed
+      );
+    }
+    // Fallback to local state
+    return [0, 1, 2, 3, 4].every(index => 
+      testStates[index]?.isTested && testStates[index]?.confirmed
+    );
   };
 
   // Hydrate local state from parent drafts (persists across tab switches)
@@ -188,6 +202,11 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
       [index]: { ...testStates[index], isConfirmed: true }
     };
     emitDraftChange(currentHash, quizitResults, localStates);
+    
+    // Notify parent component about test confirmation change
+    if (onTestConfirmationChange) {
+      onTestConfirmationChange();
+    }
   };
 
   const getTestStatus = (index) => {
@@ -245,6 +264,11 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
         lastLoadedHashRef.current = null;
         setIsTesting(false);
         emitDraftChange(null, clearedResults, clearedStates);
+        
+        // Notify parent component about test confirmation change
+        if (onTestConfirmationChange) {
+          onTestConfirmationChange();
+        }
       }
       
       setFieldsContentHash(newHash);
@@ -274,7 +298,61 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
       {/* Quizit Components Section */}
       <div className="bg-white rounded-lg p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <label className="font-medium text-lg">Quizit Configuration</label>
+          <div className="flex items-center space-x-2">
+            <label className="font-medium text-lg">Quizit Configuration</label>
+            
+            {/* Test completion status indicator */}
+            <div className="flex items-center space-x-1 text-xs text-gray-500">
+              <span>Tests:</span>
+              <span className={`font-medium ${areAllTestsConfirmed() ? 'text-green-600' : 'text-gray-400'}`}>
+                {(() => {
+                  const confirmedCount = drafts?.slots ? 
+                    [0, 1, 2, 3, 4].filter(index => 
+                      drafts.slots[index]?.isTested && drafts.slots[index]?.confirmed
+                    ).length : 
+                    [0, 1, 2, 3, 4].filter(index => 
+                      testStates[index]?.isTested && testStates[index]?.confirmed
+                    ).length;
+                  
+                  // Debug logging
+                  console.log('Test counting debug:', {
+                    drafts: drafts?.slots,
+                    testStates,
+                    confirmedCount,
+                    areAllConfirmed: areAllTestsConfirmed()
+                  });
+                  
+                  return confirmedCount;
+                })()}/5
+              </span>
+            </div>
+            
+            {/* Completion toggle for quizit configuration */}
+            <button
+              onClick={() => {
+                if (areAllTestsConfirmed() && onFieldCompletionToggle) {
+                  onFieldCompletionToggle('quizit_configuration', !fieldCompletion?.quizit_configuration);
+                }
+              }}
+              className={`w-4 h-4 rounded border-2 transition-colors ${
+                fieldCompletion?.quizit_configuration 
+                  ? 'bg-green-500 border-green-500' 
+                  : 'bg-white border-gray-300 hover:border-gray-400'
+              } ${!areAllTestsConfirmed() ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400'}`}
+              title={
+                areAllTestsConfirmed() 
+                  ? (fieldCompletion?.quizit_configuration ? 'Mark quizit configuration as incomplete' : 'Mark quizit configuration as complete')
+                  : 'Complete and confirm all 5 tests first'
+              }
+              disabled={!areAllTestsConfirmed()}
+            >
+              {fieldCompletion?.quizit_configuration && (
+                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
+            </button>
+          </div>
           <div className="flex items-center space-x-2">
             {cardId && (() => {
               const hasChanges = (formData?.quizit_components ?? '') !== (savedPrompt?.quizit_components ?? '') || 
@@ -335,6 +413,11 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
                       setTestStates(clearedStates);
                       setQuizitResults(clearedResults);
                       emitDraftChange(hash, clearedResults, clearedStates);
+                      
+                      // Notify parent component about test confirmation change
+                      if (onTestConfirmationChange) {
+                        onTestConfirmationChange();
+                      }
                     } else {
                       // Load the tests from database
                       const nextStates = {
@@ -369,6 +452,11 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
                       setTestStates(nextStates);
                       setQuizitResults(nextResults);
                       emitDraftChange(hash, nextResults, nextStates);
+                      
+                      // Notify parent component about test confirmation change
+                      if (onTestConfirmationChange) {
+                        onTestConfirmationChange();
+                      }
                     }
                   } catch (e) {
                     console.error('Unexpected error during reset to saved:', e);

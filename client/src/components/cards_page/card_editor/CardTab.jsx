@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Card from '../Card';
 import ImageReferenceSelector from './ImageReferenceSelector';
 
-const CardTab = ({ formData, handleInputChange, handleGenerate, buildTitlePrompt, buildDescriptionPrompt, buildBannerPrompt }) => {
+const CardTab = ({ formData, handleInputChange, handleGenerate, buildTitlePrompt, buildDescriptionPrompt, buildBannerPrompt, fieldCompletion, onFieldCompletionToggle }) => {
   const [titleCopied, setTitleCopied] = useState(false);
   const [descriptionCopied, setDescriptionCopied] = useState(false);
   const [bannerCopied, setBannerCopied] = useState(false);
@@ -24,27 +24,49 @@ const CardTab = ({ formData, handleInputChange, handleGenerate, buildTitlePrompt
         {/* Title */}
         <div className="bg-white rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
-            <label className="font-medium">Title</label>
-            <button
-              onClick={() => {
-                const prompt = buildTitlePrompt();
-                navigator.clipboard.writeText(prompt);
-                setTitleCopied(true);
-                setTimeout(() => setTitleCopied(false), 3000);
-              }}
-              className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm flex items-center space-x-1"
-            >
-              <span>Prompt</span>
-              {titleCopied ? (
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              )}
-            </button>
+            <div className="flex items-center space-x-2">
+              <label className="font-medium">Title</label>
+              
+              {/* Completion toggle */}
+              <button
+                onClick={() => onFieldCompletionToggle && onFieldCompletionToggle('title', !fieldCompletion?.title)}
+                className={`w-4 h-4 rounded border-2 transition-colors ${
+                  fieldCompletion?.title 
+                    ? 'bg-green-500 border-green-500' 
+                    : 'bg-white border-gray-300 hover:border-gray-400'
+                }`}
+                title={fieldCompletion?.title ? 'Mark title as incomplete' : 'Mark title as complete'}
+              >
+                {fieldCompletion?.title && (
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </button>
+            </div>
+            
+            {/* Prompt button */}
+              <button
+                onClick={() => {
+                  const prompt = buildTitlePrompt();
+                  navigator.clipboard.writeText(prompt);
+                  setTitleCopied(true);
+                  setTimeout(() => setTitleCopied(false), 3000);
+                }}
+                className="bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-xs flex items-center space-x-1 transition-colors"
+                title="Copy prompt to clipboard"
+              >
+                {titleCopied ? (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                )}
+                <span className="text-xs">Prompt</span>
+              </button>
           </div>
           <input
             type="text"
@@ -72,27 +94,49 @@ const CardTab = ({ formData, handleInputChange, handleGenerate, buildTitlePrompt
         {/* Description */}
         <div className="bg-white rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
-            <label className="font-medium">Description</label>
-            <button
-              onClick={() => {
-                const prompt = buildDescriptionPrompt();
-                navigator.clipboard.writeText(prompt);
-                setDescriptionCopied(true);
-                setTimeout(() => setDescriptionCopied(false), 3000);
-              }}
-              className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm flex items-center space-x-1"
-            >
-              <span>Prompt</span>
-              {descriptionCopied ? (
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              )}
-            </button>
+            <div className="flex items-center space-x-2">
+              <label className="font-medium">Description</label>
+              
+              {/* Completion toggle */}
+              <button
+                onClick={() => onFieldCompletionToggle && onFieldCompletionToggle('description', !fieldCompletion?.description)}
+                className={`w-4 h-4 rounded border-2 transition-colors ${
+                  fieldCompletion?.description 
+                    ? 'bg-green-500 border-green-500' 
+                    : 'bg-white border-gray-300 hover:border-gray-400'
+                }`}
+                title={fieldCompletion?.description ? 'Mark description as incomplete' : 'Mark description as complete'}
+              >
+                {fieldCompletion?.description && (
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </button>
+            </div>
+            
+            {/* Prompt button */}
+              <button
+                onClick={() => {
+                  const prompt = buildDescriptionPrompt();
+                  navigator.clipboard.writeText(prompt);
+                  setDescriptionCopied(true);
+                  setTimeout(() => setDescriptionCopied(false), 3000);
+                }}
+                className="bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-xs flex items-center space-x-1 transition-colors"
+                title="Copy prompt to clipboard"
+              >
+                {descriptionCopied ? (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                )}
+                <span className="text-xs">Prompt</span>
+              </button>
           </div>
           <textarea
             value={formData.description}
@@ -119,27 +163,49 @@ const CardTab = ({ formData, handleInputChange, handleGenerate, buildTitlePrompt
         {/* Banner Upload */}
         <div className="bg-white rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
-            <label className="font-medium">Banner Image</label>
-            <button
-              onClick={() => {
-                const prompt = buildBannerPrompt();
-                navigator.clipboard.writeText(prompt);
-                setBannerCopied(true);
-                setTimeout(() => setBannerCopied(false), 3000);
-              }}
-              className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm flex items-center space-x-1"
-            >
-              <span>Prompt</span>
-              {bannerCopied ? (
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              )}
-            </button>
+            <div className="flex items-center space-x-2">
+              <label className="font-medium">Banner Image</label>
+              
+              {/* Completion toggle */}
+              <button
+                onClick={() => onFieldCompletionToggle && onFieldCompletionToggle('banner', !fieldCompletion?.banner)}
+                className={`w-4 h-4 rounded border-2 transition-colors ${
+                  fieldCompletion?.banner 
+                    ? 'bg-green-500 border-green-500' 
+                    : 'bg-white border-gray-300 hover:border-gray-400'
+                }`}
+                title={fieldCompletion?.banner ? 'Mark banner as incomplete' : 'Mark banner as complete'}
+              >
+                {fieldCompletion?.banner && (
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </button>
+            </div>
+            
+            {/* Prompt button */}
+              <button
+                onClick={() => {
+                  const prompt = buildBannerPrompt();
+                  navigator.clipboard.writeText(prompt);
+                  setBannerCopied(true);
+                  setTimeout(() => setBannerCopied(false), 3000);
+                }}
+                className="bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-xs flex items-center space-x-1 transition-colors"
+                title="Copy prompt to clipboard"
+              >
+                {bannerCopied ? (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                )}
+                <span className="text-xs">Prompt</span>
+              </button>
           </div>
           
           {/* Banner Preview */}

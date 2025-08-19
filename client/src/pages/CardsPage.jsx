@@ -95,6 +95,14 @@ const CardsPage = () => {
           snippet_chunks_for_context (
             link,
             source_section_id
+          ),
+          card_completion_tracking (
+            title_completed,
+            description_completed,
+            content_completed,
+            banner_completed,
+            quizit_configuration_completed,
+            is_completed
           )
         `)
         .in('id', (
@@ -240,8 +248,6 @@ const CardsPage = () => {
       .from('card-banners')
       .getPublicUrl(path);
 
-    // console debug removed
-
     return publicUrl;
   };
 
@@ -282,6 +288,23 @@ const CardsPage = () => {
     }
   };
 
+  // Handle completion tracking updates
+  const handleCompletionUpdate = (cardId, completionData) => {
+    setCards(prevCards => {
+      const updatedCards = prevCards.map(card => 
+        card.id === cardId 
+          ? {
+              ...card,
+              card_completion_tracking: completionData
+            }
+          : card
+      );
+      
+      return updatedCards;
+    });
+  };
+
+  // Handle card save
   const handleCardSave = async (updatedCard) => {
     try {
       let cardId;
@@ -508,7 +531,7 @@ const CardsPage = () => {
       await refreshCardsAndDefaultLink();
       
       // Return success - don't close modal
-      return { success: true };
+      return { success: true, card: { id: cardId } };
     } catch (error) {
       console.error('Error saving card:', error);
       // Return error - don't close modal
@@ -629,13 +652,10 @@ const CardsPage = () => {
   const handleGenerate = async () => {
     if (!sectionWithCompletion || generating) return;
     
-    // debug removed
-    
     setGenerating(true);
     
     try {
       // Step 1: Generate prompts
-      // debug removed
       const { data, error } = await supabase.functions.invoke('generate-prompt', {
         body: {
           action: 'generate-prompt',
@@ -644,8 +664,6 @@ const CardsPage = () => {
         }
       });
       
-      // debug removed
-      
       if (error) {
         console.error('Error generating prompts:', error);
         alert(`Error: ${error.message}`);
@@ -653,7 +671,6 @@ const CardsPage = () => {
       }
       
       // Step 2: Show prompts to user
-      // debug removed
       setPromptData(data.data || data); // Handle both nested and direct data
       setShowPromptModal(true);
       
@@ -914,6 +931,11 @@ const CardsPage = () => {
         onSave={handleCardSave}
         onDelete={handleCardDelete}
         selectedSection={sectionWithCompletion}
+        completionData={(() => {
+          const completionData = selectedCard?.card_completion_tracking || null;
+          return completionData;
+        })()}
+        onCompletionUpdate={handleCompletionUpdate}
       />
 
       {/* Prompt Modal */}
