@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Draggable } from 'react-beautiful-dnd';
 
-const Card = ({ card, onClick, index, onDragStart, onDragEnd, showRemoveButton, onRemove, sectionId }) => {
+const Card = ({ card, onClick, index, onDragStart, onDragEnd, showRemoveButton, onRemove, sectionId, completionData }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [hoverTimeout, setHoverTimeout] = useState(null);
@@ -151,28 +151,54 @@ const Card = ({ card, onClick, index, onDragStart, onDragEnd, showRemoveButton, 
         onDragStart={() => setIsDragging(true)}
       >
         {(provided, snapshot) => (
-          <BaseCard
-            dragClassName={snapshot.isDragging ? 'opacity-50' : ''}
-            dragStyle={{
-              ...provided.draggableProps.style,
-              // Constrain to horizontal movement only
-              transform: provided.draggableProps.style?.transform
-                ? provided.draggableProps.style.transform.replace(/translate\(([^,]+),\s*[^)]+\)/, 'translate($1, 0px)')
-                : undefined,
-            }}
-            dragHandlers={{
-              ref: provided.innerRef,
-              ...provided.draggableProps,
-              ...provided.dragHandleProps,
-            }}
-          />
+          <div className="flex flex-col items-center">
+            <BaseCard
+              dragClassName={snapshot.isDragging ? 'opacity-50' : ''}
+              dragStyle={{
+                ...provided.draggableProps.style,
+                // Constrain to horizontal movement only
+                transform: provided.draggableProps.style?.transform
+                  ? provided.draggableProps.style.transform.replace(/translate\(([^,]+),\s*[^)]+\)/, 'translate($1, 0px)')
+                  : undefined,
+              }}
+              dragHandlers={{
+                ref: provided.innerRef,
+                ...provided.draggableProps,
+                ...provided.dragHandleProps,
+              }}
+            />
+            {/* Completion check circle below card */}
+            <div className="h-10 flex items-center justify-center">
+              {completionData?.is_completed && (
+                <div className="w-4 h-4 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-3 h-3 text-green-700" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </Draggable>
     );
   }
 
   // Non-draggable preview usage
-  return <BaseCard />;
+  return (
+    <div className="flex flex-col items-center">
+      <BaseCard />
+      {/* Completion check circle below card */}
+      <div className="h-10 flex items-center justify-center">
+        {completionData?.is_completed && (
+          <div className="w-4 h-4 bg-green-100 rounded-full flex items-center justify-center">
+            <svg className="w-3 h-3 text-green-700" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default Card;

@@ -20,7 +20,7 @@ const CardGrid = ({ cards, onCardClick, onCreateCard, cardSetDone, updatingOrder
   // If no cards and card set is not done, show just the add card placeholder
   if (cards.length === 0 && !cardSetDone) {
     return (
-      <div className="flex justify-start p-10">
+      <div className="flex justify-start p-10 pb-0">
         <AddCardPlaceholder onClick={onCreateCard} />
       </div>
     );
@@ -40,7 +40,7 @@ const CardGrid = ({ cards, onCardClick, onCreateCard, cardSetDone, updatingOrder
           <div 
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className="flex gap-6 overflow-x-auto custom-scrollbar p-10"
+            className="flex gap-6 overflow-x-auto custom-scrollbar p-10 pb-0"
           >
             {cards.map((card, index) => (
               <Card 
@@ -48,6 +48,7 @@ const CardGrid = ({ cards, onCardClick, onCreateCard, cardSetDone, updatingOrder
                 card={card} 
                 onClick={onCardClick}
                 index={index}
+                completionData={card.card_completion_tracking}
               />
             ))}
             {provided.placeholder}
@@ -79,6 +80,7 @@ const CardGrid = ({ cards, onCardClick, onCreateCard, cardSetDone, updatingOrder
               card={card} 
               onClick={onCardClick}
               index={index}
+              completionData={card.card_completion_tracking}
             />
           ))}
           {provided.placeholder}
