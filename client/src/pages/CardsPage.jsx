@@ -14,7 +14,7 @@ const CardsPage = () => {
   const { currentBook } = useBook();
   const { sectionId, selectSection } = useUrlState();
   const [selectedSection, setSelectedSection] = useState(null);
-  const { sections, updateSection: updateSectionFromHook } = useSections(currentBook);
+  const { sections, updateSection: updateSectionFromHook, updateSectionsWithCards } = useSections(currentBook);
   
   // Card-related state (moved from CardDrawer)
   const [cards, setCards] = useState([]);
@@ -168,6 +168,23 @@ const CardsPage = () => {
       handleSectionSelect(firstSection);
     }
   }, [sections]);
+
+  // Update sections with card completion data when cards change
+  useEffect(() => {
+    if (cards.length > 0 && sections.length > 0) {
+      // Only update if card completion status has actually changed
+      const currentCompletionHash = cards
+        .map(c => c.id + (c.card_completion_tracking?.is_completed ? '1' : '0'))
+        .join('|');
+      
+      // Check if we need to update (avoid unnecessary re-renders)
+      const needsUpdate = sections[0]?.completionHash !== currentCompletionHash;
+      
+      if (needsUpdate) {
+        updateSectionsWithCards(cards);
+      }
+    }
+  }, [cards.length, sections.length, updateSectionsWithCards]);
 
   // Fetch cards when sectionWithCompletion changes
   useEffect(() => {

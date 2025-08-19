@@ -49,6 +49,7 @@ const CardGrid = ({ cards, onCardClick, onCreateCard, cardSetDone, updatingOrder
                 onClick={onCardClick}
                 index={index}
                 completionData={card.card_completion_tracking}
+                showCompletionBadge={true}
               />
             ))}
             {provided.placeholder}
@@ -81,6 +82,7 @@ const CardGrid = ({ cards, onCardClick, onCreateCard, cardSetDone, updatingOrder
               onClick={onCardClick}
               index={index}
               completionData={card.card_completion_tracking}
+              showCompletionBadge={true}
             />
           ))}
           {provided.placeholder}

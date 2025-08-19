@@ -314,14 +314,6 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
                       testStates[index]?.isTested && testStates[index]?.confirmed
                     ).length;
                   
-                  // Debug logging
-                  console.log('Test counting debug:', {
-                    drafts: drafts?.slots,
-                    testStates,
-                    confirmedCount,
-                    areAllConfirmed: areAllTestsConfirmed()
-                  });
-                  
                   return confirmedCount;
                 })()}/5
               </span>

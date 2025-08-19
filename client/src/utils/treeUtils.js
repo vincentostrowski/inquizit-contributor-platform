@@ -90,14 +90,33 @@ export const calculateSectionCompletion = (section) => {
 /**
  * Adds completion data to all sections in a tree
  * @param {Array} tree - Tree structure of sections
+ * @param {Array} cards - Optional array of cards with completion data
  * @returns {Array} Tree with completion data added to each section
  */
-export const addCompletionDataToTree = (tree) => {
+export const addCompletionDataToTree = (tree, cards = []) => {
   const processNode = (node) => {
     const completion = calculateSectionCompletion(node);
+    
+    // Calculate card completion for this section
+    let allCardsCompleted = false;
+    if (cards.length > 0) {
+      // Get all cards that belong to this section
+      const sectionCards = cards.filter(card => {
+        // Check if card belongs to this section via snippet_chunks_for_context
+        return card.snippet_chunks_for_context?.some(chunk => 
+          chunk.source_section_id === node.id
+        );
+      });
+      
+      // Check if all cards in this section are completed
+      allCardsCompleted = sectionCards.length > 0 && 
+        sectionCards.every(card => card.card_completion_tracking?.is_completed);
+    }
+    
     const processedNode = {
       ...node,
-      completion
+      completion,
+      all_cards_completed: allCardsCompleted
     };
 
     if (node.children && node.children.length > 0) {

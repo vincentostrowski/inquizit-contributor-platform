@@ -34,6 +34,22 @@ export const useSections = (book) => {
     }
   };
 
+  // Function to update sections with card completion data
+  const updateSectionsWithCards = (cards) => {
+    if (sections.length > 0 && cards.length > 0) {
+      const tree = buildTreeFromFlat(sections.map(s => ({ ...s, children: s.children || [] })));
+      const treeWithCompletion = addCompletionDataToTree(tree, cards);
+      
+      // Add completion hash to track changes
+      const completionHash = cards
+        .map(c => c.id + (c.card_completion_tracking?.is_completed ? '1' : '0'))
+        .join('|');
+      
+      const updatedSections = treeWithCompletion.map(s => ({ ...s, completionHash }));
+      setSections(updatedSections);
+    }
+  };
+
   const createSection = async (parentSection = null) => {
     if (!book) return null;
 
@@ -72,7 +88,7 @@ export const useSections = (book) => {
       return true;
     } catch (err) {
       setError(err.message);
-      return false;
+      return null;
     }
   };
 
@@ -83,6 +99,7 @@ export const useSections = (book) => {
     createSection,
     updateSection,
     deleteSection,
-    refreshSections: fetchSections
+    refreshSections: fetchSections,
+    updateSectionsWithCards
   };
 }; 
