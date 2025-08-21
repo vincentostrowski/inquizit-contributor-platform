@@ -21,8 +21,8 @@ const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
     try {
       const savedState = localStorage.getItem('bookSidebarState');
       if (savedState) {
-        const { searchQuery: savedSearch, searchResults: savedSearchResults } = JSON.parse(savedState);
-        setSearchQuery(savedSearch || '');
+        const { searchResults: savedSearchResults } = JSON.parse(savedState);
+        // Don't restore search query - only restore search results if needed
         setSearchResults(savedSearchResults || { collections: [], books: [] });
         return true;
       }
@@ -130,6 +130,8 @@ const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
       if (searchQuery) {
         setSearchQuery('');
         setSearchResults({ collections: [], books: [] });
+        // Clear localStorage state when clearing search
+        localStorage.removeItem('bookSidebarState');
       }
     } catch (error) {
       console.error('Error navigating to favorite:', error);
@@ -147,7 +149,7 @@ const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
   const saveCurrentState = () => {
     try {
       const stateToSave = {
-        searchQuery,
+        // Don't save search query - only save search results if needed
         searchResults
       };
       localStorage.setItem('bookSidebarState', JSON.stringify(stateToSave));
@@ -282,8 +284,8 @@ const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
     setSearchResults({ collections: [], books: [] });
     setLoading(false);
     
-    // Save search state
-    saveCurrentState();
+    // Clear localStorage state when clearing search
+    localStorage.removeItem('bookSidebarState');
   };
 
   // Fetch collections for a specific parent
@@ -326,6 +328,9 @@ const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
     
     // Clear search when navigating to new collection
     setSearchQuery('');
+    setSearchResults({ collections: [], books: [] });
+    // Clear localStorage state when navigating
+    localStorage.removeItem('bookSidebarState');
     
     await fetchCollections(collection.id);
     await fetchBooks(collection.id);
@@ -340,6 +345,9 @@ const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
     
     // Clear search when navigating back
     setSearchQuery('');
+    setSearchResults({ collections: [], books: [] });
+    // Clear localStorage state when navigating
+    localStorage.removeItem('bookSidebarState');
     
     const targetCollection = newPath[newPath.length - 1];
     if (targetCollection) {
@@ -437,6 +445,7 @@ const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
                     placeholder="Search collections and books..."
                     value={searchQuery}
                     onChange={handleSearchInput}
+                    autoComplete="off"
                     className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   />
                   {/* Search Icon */}
@@ -448,7 +457,12 @@ const BookSidebar = forwardRef(({ isOpen, onToggle }, ref) => {
                   {/* Clear Button */}
                   {searchQuery && (
                     <button
-                      onClick={() => setSearchQuery('')}
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchResults({ collections: [], books: [] });
+                        // Clear localStorage state when clearing search
+                        localStorage.removeItem('bookSidebarState');
+                      }}
                       className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
                     >
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

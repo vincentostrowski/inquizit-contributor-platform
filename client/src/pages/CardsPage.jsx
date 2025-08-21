@@ -321,6 +321,48 @@ const CardsPage = () => {
     });
   };
 
+  // Get which permutation should be used for a specific test slot
+  const getPermutationForTest = (testIndex, selectedPermutations) => {
+    if (!selectedPermutations) return null;
+    
+    try {
+      const permutations = JSON.parse(selectedPermutations);
+      if (!Array.isArray(permutations) || permutations.length === 0) return null;
+      
+      const totalTests = 6;
+      const permCount = permutations.length;
+      
+      if (permCount === 1) {
+        // All 6 tests use the same permutation
+        return permutations[0];
+      }
+      
+      if (permCount === 2) {
+        // Each permutation gets 3 tests
+        return testIndex < 3 ? permutations[0] : permutations[1];
+      }
+      
+      if (permCount === 3) {
+        // Each permutation gets 2 tests
+        return permutations[Math.floor(testIndex / 2)];
+      }
+      
+      // 4+ permutations: first gets extra, others get minimum 2
+      const baseTestsPerPerm = Math.floor(totalTests / permCount);
+      const extraTests = totalTests % permCount;
+      
+      if (testIndex < (baseTestsPerPerm + extraTests)) {
+        return permutations[0];
+      }
+      
+      const permIndex = Math.floor((testIndex - (baseTestsPerPerm + extraTests)) / baseTestsPerPerm) + 1;
+      return permutations[permIndex] || permutations[0]; // fallback
+    } catch (error) {
+      console.error('Error parsing selected permutations:', error);
+      return null;
+    }
+  };
+
   // Handle card save
   const handleCardSave = async (updatedCard) => {
     try {
@@ -333,7 +375,8 @@ const CardsPage = () => {
           title: updatedCard.title || '',
           description: updatedCard.description || '',
           prompt: updatedCard.prompt || '',
-          quizit_components: updatedCard.quizit_components || '',
+          quizit_component_structure: updatedCard.quizit_component_structure || '',
+          quizit_valid_permutations: updatedCard.quizit_valid_permutations || '',
           words_to_avoid: updatedCard.words_to_avoid || '',
           content: updatedCard.content || '',
           order: updatedCard.order || cards.length + 1,
@@ -400,7 +443,8 @@ const CardsPage = () => {
           title: updatedCard.title || '',
           description: updatedCard.description || '',
           prompt: updatedCard.prompt || '',
-          quizit_components: updatedCard.quizit_components || '',
+          quizit_component_structure: updatedCard.quizit_component_structure || '',
+          quizit_valid_permutations: updatedCard.quizit_valid_permutations || '',
           words_to_avoid: updatedCard.words_to_avoid || '',
           content: updatedCard.content || '',
           order: updatedCard.order || selectedCard.order,
@@ -487,7 +531,7 @@ const CardsPage = () => {
       const drafts = updatedCard?.pendingPromptTests;
       if (cardId && drafts && drafts.slots) {
         // Generate hash from the new quizit fields
-        const components = updatedCard.quizit_components || '';
+        const components = updatedCard.quizit_component_structure || '';
         const wordsToAvoid = updatedCard.words_to_avoid || '';
         const combinedContent = `Components:\n${components}\n\nWords to Avoid:\n${wordsToAvoid}`;
         
@@ -515,32 +559,43 @@ const CardsPage = () => {
           // Continue anyway - we'll try to save new tests
         }
         
-        // Now save the new tests with the new hash
-        const rows = [0,1,2,3,4]
+        // Now save all 6 slots with their permutation assignments
+        const rows = [0,1,2,3,4,5]
           .map((slot) => {
             const s = drafts.slots?.[slot];
-            if (!s) return null;
-            const hasContent = (s.quizit?.trim() || s.reasoning?.trim() || s.feedback?.trim());
-            if (!hasContent && !s.isTested && !s.confirmed) return null;
-            return {
+            
+            // Always save all 6 slots, even if empty
+            // For empty slots, use the calculated permutation assignment
+            const calculatedPermutation = getPermutationForTest(slot, updatedCard.quizit_valid_permutations);
+            
+            // Ensure we always have a slot object, even if it's empty
+            const slotData = s || {};
+            
+            const row = {
               card_id: cardId,
               slot,
               prompt_hash: newPromptHash,
-              quizit: s.quizit || '',
-              reasoning: s.reasoning || '',
-              feedback: s.feedback || '',
-              confirmed: !!s.confirmed
+              quizit: slotData.quizit || '',
+              reasoning: slotData.reasoning || '',
+              feedback: slotData.feedback || '',
+              confirmed: !!slotData.confirmed,
+              permutation: slotData.permutation || calculatedPermutation || null
             };
-          })
-          .filter(Boolean);
+            
+            // Debug logging for empty slots
+            if (!slotData.quizit && !slotData.reasoning && !slotData.feedback) {
+              console.log(`Slot ${slot} is empty, saving with permutation: ${row.permutation}`);
+            }
+            
+            return row;
+          });
 
-        if (rows.length > 0) {
-          const { error: insertError } = await supabase
-            .from('card_prompt_tests')
-            .insert(rows);
-          if (insertError) {
-            console.error('Error inserting new prompt tests:', insertError);
-          }
+        // Always insert all 6 rows (even if some are empty)
+        const { error: insertError } = await supabase
+          .from('card_prompt_tests')
+          .insert(rows);
+        if (insertError) {
+          console.error('Error inserting new prompt tests:', insertError);
         }
       }
 

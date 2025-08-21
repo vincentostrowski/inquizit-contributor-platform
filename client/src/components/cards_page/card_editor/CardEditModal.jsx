@@ -35,7 +35,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     description: '',
     card_idea: '',
     prompt: '',
-    quizit_components: '',
+    quizit_component_structure: '',
+    quizit_valid_permutations: '',
     words_to_avoid: '',
     content: '',
     order: '',
@@ -53,6 +54,9 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   const [jsonCopied, setJsonCopied] = useState(false);
   const [jsonError, setJsonError] = useState(null);
   const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'saving', 'success', 'error'
+  
+  // Selected permutations state - persists across tab switches
+  const [selectedPermutations, setSelectedPermutations] = useState(new Set());
   
   // Completion tracking state - persists across tab changes
   const [fieldCompletion, setFieldCompletion] = useState({
@@ -93,13 +97,27 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         description: card.description || '',
         card_idea: card.card_idea || '',
         prompt: card.prompt || '',
-        quizit_components: card.quizit_components || '',
+        quizit_component_structure: card.quizit_component_structure || '',
+        quizit_valid_permutations: card.quizit_valid_permutations || '',
         words_to_avoid: card.words_to_avoid || '',
         content: card.content || '',
         order: card.order || '',
         banner: card.banner || '',
         bannerFile: null // Reset file when loading existing card
       });
+      
+      // Load selected permutations from saved data
+      if (card.quizit_valid_permutations) {
+        try {
+          const savedPermutations = JSON.parse(card.quizit_valid_permutations);
+          setSelectedPermutations(new Set(savedPermutations));
+        } catch (error) {
+          console.error('Error parsing saved permutations:', error);
+          setSelectedPermutations(new Set());
+        }
+      } else {
+        setSelectedPermutations(new Set());
+      }
       
       // Set the conversation link from card (either from existing card or from new card with section default)
       setConversationLink(card.conversationLink || '');
@@ -115,13 +133,13 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       // Load persisted quizit tests for the saved quizit fields (if existing card)
       (async () => {
         try {
-          if (!card.id || (!card.quizit_components && !card.words_to_avoid)) {
+          if (!card.id || (!card.quizit_component_structure && !card.words_to_avoid)) {
             setPendingPromptTests(null);
             return;
           }
           
           // Generate hash from the new quizit fields (same logic as save)
-          const components = card.quizit_components || '';
+          const components = card.quizit_component_structure || '';
           const wordsToAvoid = card.words_to_avoid || '';
           const combinedContent = `Components:\n${components}\n\nWords to Avoid:\n${wordsToAvoid}`;
           
@@ -139,7 +157,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
           const promptHash = generateHash(combinedContent);
           const { data, error } = await supabase
             .from('card_prompt_tests')
-            .select('slot, quizit, reasoning, feedback, confirmed')
+            .select('slot, quizit, reasoning, feedback, confirmed, permutation')
             .eq('card_id', card.id)
             .eq('prompt_hash', promptHash)
             .order('slot', { ascending: true });
@@ -150,14 +168,15 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
             return;
           }
 
-          const slots = { 0:{},1:{},2:{},3:{},4:{} };
+          const slots = { 0:{},1:{},2:{},3:{},4:{},5:{} };
           (data || []).forEach(row => {
             slots[row.slot] = {
               quizit: row.quizit || '',
               reasoning: row.reasoning || '',
               feedback: row.feedback || '',
               isTested: !!(row.quizit || row.reasoning),
-              confirmed: !!row.confirmed
+              confirmed: !!row.confirmed,
+              permutation: row.permutation || null
             };
           });
           setPendingPromptTests({ promptHash, slots });
@@ -186,12 +205,12 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
 
   // Check if all fields are completed
   const areAllFieldsCompleted = () => {
-    // For quizit_configuration, check if both quizit fields have content AND all 5 tests are completed/confirmed
-    const quizitFieldsComplete = formData.quizit_components && formData.words_to_avoid;
+    // For quizit_configuration, check if both quizit fields have content AND all 6 tests are completed/confirmed
+    const quizitFieldsComplete = formData.quizit_component_structure && formData.words_to_avoid;
     
-    // Check if all 5 tests are completed and confirmed (if we have pendingPromptTests)
+    // Check if all 6 tests are completed and confirmed (if we have pendingPromptTests)
     const allTestsCompleted = pendingPromptTests?.slots && 
-      [0, 1, 2, 3, 4].every(index => 
+      [0, 1, 2, 3, 4, 5].every(index => 
         pendingPromptTests.slots[index]?.isTested && pendingPromptTests.slots[index]?.confirmed
       );
     
@@ -207,12 +226,12 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   // Get completion percentage
   const getCompletionPercentage = () => {
     const totalFields = Object.keys(fieldCompletion).length;
-    // For quizit_configuration, check if both quizit fields have content AND all 5 tests are completed/confirmed
-    const quizitFieldsComplete = formData.quizit_components && formData.words_to_avoid;
+    // For quizit_configuration, check if both quizit fields have content AND all 6 tests are completed/confirmed
+    const quizitFieldsComplete = formData.quizit_component_structure && formData.words_to_avoid;
     
-    // Check if all 5 tests are completed and confirmed (if we have pendingPromptTests)
+    // Check if all 6 tests are completed and confirmed (if we have pendingPromptTests)
     const allTestsCompleted = pendingPromptTests?.slots && 
-      [0, 1, 2, 3, 4].every(index => 
+      [0, 1, 2, 3, 4, 5].every(index => 
         pendingPromptTests.slots[index]?.isTested && pendingPromptTests.slots[index]?.confirmed
       );
     
@@ -305,7 +324,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     }
     
     // For quizit configuration, uncheck if either quizit field changes
-    if ((field === 'quizit_components' || field === 'words_to_avoid') && fieldCompletion.quizit_configuration) {
+            if ((field === 'quizit_component_structure' || field === 'words_to_avoid') && fieldCompletion.quizit_configuration) {
       setFieldCompletion(prev => ({
         ...prev,
         quizit_configuration: false
@@ -493,7 +512,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       description: formData.description || '',
       card_idea: formData.card_idea || '',
       prompt: formData.prompt || '',
-      quizit_components: formData.quizit_components || '',
+              quizit_component_structure: formData.quizit_component_structure || '',
       words_to_avoid: formData.words_to_avoid || '',
       content: formData.content || ''
     };
@@ -509,7 +528,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         setJsonError('Invalid JSON: expected an object');
         return;
       }
-      const allowedKeys = ['title', 'description', 'card_idea', 'prompt', 'quizit_components', 'words_to_avoid', 'content'];
+      const allowedKeys = ['title', 'description', 'card_idea', 'prompt', 'quizit_component_structure', 'words_to_avoid', 'content'];
       const updates = {};
       for (const key of allowedKeys) {
         if (Object.prototype.hasOwnProperty.call(parsed, key)) {
@@ -629,7 +648,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
                 <textarea
                   value={jsonInput}
                   onChange={(e) => setJsonInput(e.target.value)}
-                  placeholder='{"title": "...", "description": "...", "card_idea": "...", "prompt": "...", "quizit_components": "...", "words_to_avoid": "...", "content": "...", "banner": "...", "order": 1}'
+                  placeholder='{"title": "...", "description": "...", "card_idea": "...", "prompt": "...", "quizit_component_structure": "...", "words_to_avoid": "...", "content": "...", "banner": "...", "order": 1}'
                   className="flex-1 p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[92px] resize-y"
                 />
                 <div className="flex flex-col space-y-2">
@@ -830,7 +849,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
               handleInputChange={handleInputChange}
               handleGenerate={handleGenerate}
               savedPrompt={{
-                quizit_components: card?.quizit_components || '',
+                quizit_component_structure: card?.quizit_component_structure || '',
                 words_to_avoid: card?.words_to_avoid || ''
               }}
               cardId={card?.id}
@@ -839,6 +858,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
               fieldCompletion={fieldCompletion}
               onFieldCompletionToggle={handleFieldCompletionToggle}
               onTestConfirmationChange={handleTestConfirmationChange}
+              selectedPermutations={selectedPermutations}
+              setSelectedPermutations={setSelectedPermutations}
             />
           )}
         </div>

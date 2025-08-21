@@ -34,7 +34,7 @@ serve(async (req) => {
 
     const system = `You are a JSON-only responder. You ALWAYS return a single JSON object with exactly two string fields: "quizit" and "reasoning". No markdown, no prose outside JSON, no extra keys.`
     
-    const user = `Write a short, realistic scenario of about 100 words, written in second person ("you…"), in which the central idea is present but never directly named.
+    const user = `Write a concise scenario written in second person ("you..."), in which the central idea is present but never directly named. Use a maximum of one sentence per component, but if possible, combine multiple components into single sentences. The scenario should present these components in the exact order they appear below.
 
 The scenario should incorporate these key elements:
 ${components}
@@ -42,7 +42,7 @@ ${components}
 Do not use or reference any of the following words, phrases, or examples:
 ${wordsToAvoid}
 
-Keep the language simple and direct. Be concise and avoid verbose or complicated phrasing. Use clear, straightforward language that a general audience can easily understand.
+Keep descriptive language minimal and purposeful. Every sentence must directly address at least one of the key components above. Avoid sentences that are purely atmospheric or don't contribute to the core scenario. Follow the component order exactly as listed.
 
 Return strictly JSON as:
 {"quizit":"...","reasoning":"..."}
