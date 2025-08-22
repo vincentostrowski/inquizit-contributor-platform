@@ -26,13 +26,12 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
   const [currentHash, setCurrentHash] = useState(null);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [fieldsContentHash, setFieldsContentHash] = useState(null);
-  const [pasteMessage, setPasteMessage] = useState('Click to paste JSON configuration');
-  const [wordsToAvoidPasteMessage, setWordsToAvoidPasteMessage] = useState('Click to paste words/phrases');
+
 
   const quizitRef = useRef(null);
   const reasoningRef = useRef(null);
-  const promptRef = useRef(null);
-  const wordsToAvoidPromptRef = useRef(null);
+
+
 
   const lastLoadedHashRef = useRef(null);
 
@@ -578,7 +577,7 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
       4: { isTested: !!drafts.slots?.[4]?.isTested, isConfirmed: !!drafts.slots?.[4]?.confirmed },
       5: { isTested: !!drafts.slots?.[5]?.isTested, isConfirmed: !!drafts.slots?.[5]?.confirmed },
     };
-                const nextResults = {
+    const nextResults = {
         0: { quizit: drafts.slots?.[0]?.quizit || '', reasoning: drafts.slots?.[0]?.reasoning || '', feedback: drafts.slots?.[0]?.feedback || '', permutation: drafts.slots?.[0]?.permutation || null },
         1: { quizit: drafts.slots?.[1]?.quizit || '', reasoning: drafts.slots?.[1]?.reasoning || '', feedback: drafts.slots?.[1]?.feedback || '', permutation: drafts.slots?.[1]?.permutation || null },
         2: { quizit: drafts.slots?.[2]?.quizit || '', reasoning: drafts.slots?.[2]?.reasoning || '', feedback: drafts.slots?.[2]?.feedback || '', permutation: drafts.slots?.[2]?.permutation || null },
@@ -821,7 +820,6 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
       autoGrowEl(quizitRef.current);
       autoGrowEl(reasoningRef.current);
     }
-    autoGrowEl(promptRef.current);
     
   }, [currentTestIndex, testStates[currentTestIndex]?.isTested, quizitResults[currentTestIndex]?.quizit, quizitResults[currentTestIndex]?.reasoning]);
 
@@ -1172,7 +1170,6 @@ Example:
               <button
                 onClick={() => {
                   handleInputChange('quizit_component_structure', '');
-                  setPasteMessage('Click to paste JSON configuration');
                 }}
                 className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
               >
@@ -1184,19 +1181,25 @@ Example:
           {/* Paste Interface */}
           {!formData?.quizit_component_structure ? (
             <div 
-              onClick={() => {
-                // Focus the hidden textarea to capture paste
-                promptRef.current?.focus();
-                // Show a brief message
-                setPasteMessage('Press Ctrl+V (or Cmd+V) to paste');
-                // Clear message after 3 seconds
-                setTimeout(() => setPasteMessage('Click to paste JSON configuration'), 3000);
+              onPaste={(e) => {
+                e.preventDefault();
+                const pastedText = e.clipboardData.getData('text');
+                handleInputChange('quizit_component_structure', pastedText);
               }}
-              className="w-full h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors"
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+                  e.preventDefault();
+                  navigator.clipboard.readText().then(text => {
+                    handleInputChange('quizit_component_structure', text);
+                  });
+                }
+              }}
+              tabIndex={0}
+              className="w-full h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <div className="text-center">
                 <div className="text-gray-500 text-sm mb-1">Click to paste JSON configuration</div>
-                <div className="text-gray-400 text-xs">{pasteMessage}</div>
+                <div className="text-gray-400 text-xs">Press Ctrl+V (or Cmd+V) to paste</div>
               </div>
             </div>
           ) : (
@@ -1505,35 +1508,9 @@ Example:
             </div>
           )}
           
-          {/* Hidden textarea for paste handling */}
-          <textarea
-            ref={promptRef}
-            value=""
-            onChange={() => {}} // No onChange needed
-            onPaste={(e) => {
-              e.preventDefault();
-              const pastedText = e.clipboardData.getData('text');
-              handleInputChange('quizit_component_structure', pastedText);
-              setPasteMessage('Click to paste JSON configuration');
-            }}
-            className="absolute -left-[9999px] opacity-0 pointer-events-none"
-            placeholder=""
-          />
+
           
-          {/* Hidden textarea for words to avoid paste handling */}
-          <textarea
-            ref={wordsToAvoidPromptRef}
-            value=""
-            onChange={() => {}} // No onChange needed
-            onPaste={(e) => {
-              e.preventDefault();
-              const pastedText = e.clipboardData.getData('text');
-              handleInputChange('words_to_avoid', pastedText);
-              setWordsToAvoidPasteMessage('Click to paste words/phrases');
-            }}
-            className="absolute -left-[9999px] opacity-0 pointer-events-none"
-            placeholder=""
-          />
+
         </div>
 
         {/* Words/Phrases/Expressions to Avoid Field */}
@@ -1546,7 +1523,6 @@ Example:
               <button
                 onClick={() => {
                   handleInputChange('words_to_avoid', '');
-                  setWordsToAvoidPasteMessage('Click to paste words/phrases');
                 }}
                 className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
                 title="Reset words to avoid"
@@ -1559,19 +1535,26 @@ Example:
           {/* Paste Interface */}
           {!formData?.words_to_avoid || formData.words_to_avoid.length === 0 ? (
             <div 
-              onClick={() => {
-                // Focus the hidden textarea to capture paste
-                wordsToAvoidPromptRef.current?.focus();
-                // Show a brief message
-                setWordsToAvoidPasteMessage('Press Ctrl+V (or Cmd+V) to paste');
-                // Clear message after 3 seconds
-                setTimeout(() => setWordsToAvoidPasteMessage('Click to paste words/phrases'), 3000);
+              onPaste={(e) => {
+                e.preventDefault();
+                const pastedText = e.clipboardData.getData('text');
+                handleInputChange('words_to_avoid', pastedText);
               }}
-              className="w-full h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors"
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+                  e.preventDefault();
+                  navigator.clipboard.readText().then(text => {
+                    handleInputChange('words_to_avoid', text);
+                  });
+                }
+              }}
+
+              tabIndex={0}
+              className="w-full h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <div className="text-center">
                 <div className="text-gray-500 text-sm mb-1">Click to paste words/phrases</div>
-                <div className="text-gray-400 text-xs">{wordsToAvoidPasteMessage}</div>
+                <div className="text-gray-400 text-xs">Press Ctrl+V (or Cmd+V) to paste</div>
               </div>
             </div>
                       ) : (
@@ -1716,9 +1699,9 @@ Example:
           <div className="bg-gray-50 rounded-lg p-4">
             <h4 className="font-medium mb-2">Generated Quizit</h4>
             {testStates[currentTestIndex]?.isTested ? (
-                          <textarea
-              ref={quizitRef}
-              value={quizitResults[currentTestIndex]?.quizit || ''}
+              <textarea
+                ref={quizitRef}
+                value={quizitResults[currentTestIndex]?.quizit || ''}
                 onChange={(e) => {
                   const next = {
                     ...quizitResults,

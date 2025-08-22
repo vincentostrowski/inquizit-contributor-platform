@@ -575,7 +575,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={onClose}>
       <div className="w-11/12 h-5/6 max-w-7xl flex flex-col bg-gray-100 rounded-lg" onClick={(e) => e.stopPropagation()}>
         {/* Slide-up Link Panel */}
         {showLinkPanel && (
@@ -700,9 +700,9 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
           <div className="flex flex-1">
             <button
               onClick={() => setActiveTab('card')}
-              className={`px-6 py-4 font-medium text-sm transition-all duration-200 relative ${
+              className={`px-6 py-4 font-medium text-sm transition-all duration-100 relative ${
                 activeTab === 'card' 
-                  ? 'text-blue-600 bg-white border-b-2 border-blue-500 shadow-sm' 
+                  ? 'text-blue-600 bg-white shadow-sm' 
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
               }`}
             >
@@ -713,9 +713,9 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
             </button>
             <button
               onClick={() => setActiveTab('content')}
-              className={`px-6 py-4 font-medium text-sm transition-all duration-200 relative ${
+              className={`px-6 py-4 font-medium text-sm transition-all duration-100 relative ${
                 activeTab === 'content' 
-                  ? 'text-blue-600 bg-white border-b-2 border-blue-500 shadow-sm' 
+                  ? 'text-blue-600 bg-white shadow-sm' 
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
               }`}
             >
@@ -726,9 +726,9 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
             </button>
             <button
               onClick={() => setActiveTab('quizit')}
-              className={`px-6 py-4 font-medium text-sm transition-all duration-200 relative ${
+              className={`px-6 py-4 font-medium text-sm transition-all duration-100 relative ${
                 activeTab === 'quizit' 
-                  ? 'text-blue-600 bg-white border-b-2 border-blue-500 shadow-sm' 
+                  ? 'text-blue-600 bg-white shadow-sm' 
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
               }`}
             >
