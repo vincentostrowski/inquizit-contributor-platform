@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { DragDropContext } from 'react-beautiful-dnd';
 import { supabase } from '../services/supabaseClient';
-import ReadOnlySectionBrowser from '../components/cards_page/ReadOnlySectionBrowser';  
+import ReadOnlySectionBrowser from '../components/cards_page/ReadOnlySectionBrowser';
 import CardGrid from '../components/cards_page/CardGrid';
+import { generateQuizitHash } from '../utils/hashUtils';
 import ActionsList from '../components/cards_page/ActionsList';
 import PromptModal from '../components/cards_page/PromptModal';
 import { CardEditModal } from '../components/cards_page/card_editor';
@@ -530,23 +531,11 @@ const CardsPage = () => {
       // Persist quizit tests only on Save, if any are present
       const drafts = updatedCard?.pendingPromptTests;
       if (cardId && drafts && drafts.slots) {
-        // Generate hash from the new quizit fields
+        // Generate hash from the new quizit fields using shared utility
         const components = updatedCard.quizit_component_structure || '';
         const wordsToAvoid = updatedCard.words_to_avoid || '';
-        const combinedContent = `Components:\n${components}\n\nWords to Avoid:\n${wordsToAvoid}`;
-        
-        // Simple hash function for consistency with UI (same as djb2 fallback)
-        const generateHash = (text) => {
-          let hash = 5381;
-          for (let i = 0; i < text.length; i += 1) {
-            hash = ((hash << 5) + hash) + text.charCodeAt(i);
-            hash |= 0; // force 32-bit
-          }
-          // Convert to hex string (same format as UI fallback)
-          return (hash >>> 0).toString(16).padStart(8, '0');
-        };
-        
-        const newPromptHash = generateHash(combinedContent);
+        const cardIdea = updatedCard.card_idea || '';
+        const newPromptHash = generateQuizitHash(components, wordsToAvoid, cardIdea);
         
         // First, delete any existing tests for this card (they're now irrelevant)
         const { error: deleteError } = await supabase

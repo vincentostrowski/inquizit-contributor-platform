@@ -4,6 +4,7 @@ import CardTab from './CardTab';
 import ContentTab from './ContentTab';
 import QuizitTab from './QuizitTab';
 import ImageReferenceSelector from './ImageReferenceSelector';
+import { generateQuizitHash } from '../../../utils/hashUtils';
 
 // Field completion toggle component
 const FieldCompletionToggle = ({ field, isCompleted, onToggle, label }) => (
@@ -141,20 +142,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
           // Generate hash from the new quizit fields (same logic as save)
           const components = card.quizit_component_structure || '';
           const wordsToAvoid = card.words_to_avoid || '';
-          const combinedContent = `Components:\n${components}\n\nWords to Avoid:\n${wordsToAvoid}`;
-          
-          // Simple hash function for consistency with save logic (same as djb2 fallback)
-          const generateHash = (text) => {
-            let hash = 5381;
-            for (let i = 0; i < text.length; i += 1) {
-              hash = ((hash << 5) + hash) + text.charCodeAt(i);
-              hash |= 0; // force 32-bit
-            }
-            // Convert to hex string (same format as save logic)
-            return (hash >>> 0).toString(16).padStart(8, '0');
-          };
-          
-          const promptHash = generateHash(combinedContent);
+          const cardIdea = card.card_idea || '';
+          const promptHash = generateQuizitHash(components, wordsToAvoid, cardIdea);
           const { data, error } = await supabase
             .from('card_prompt_tests')
             .select('slot, quizit, reasoning, feedback, confirmed, permutation')

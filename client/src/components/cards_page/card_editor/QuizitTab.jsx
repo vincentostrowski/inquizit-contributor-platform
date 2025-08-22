@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { generateValidOrderings } from '../../../utils/dependencyUtils';
 import { supabase } from '../../../services/supabaseClient';
+import { generateQuizitHash as generateQuizitHashUtil } from '../../../utils/hashUtils';
 
 const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftChange, savedPrompt, drafts, cardId, fieldCompletion = {}, onFieldCompletionToggle, onTestConfirmationChange, selectedPermutations, setSelectedPermutations }) => {
   const [currentTestIndex, setCurrentTestIndex] = useState(0);
@@ -63,12 +64,12 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     }
   };
 
-  // Generate hash from combined quizit fields
+  // Generate hash from combined quizit fields using shared utility
   const generateQuizitHash = async () => {
     const components = formData?.quizit_component_structure || '';
     const wordsToAvoid = formData?.words_to_avoid || '';
-    const combinedContent = `Components:\n${components}\n\nWords to Avoid:\n${wordsToAvoid}`;
-    return await sha256(combinedContent);
+    const cardIdea = formData?.card_idea || '';
+    return generateQuizitHashUtil(components, wordsToAvoid, cardIdea);
   };
 
   // Generate permutations from component structure
@@ -81,7 +82,26 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
         return { validOrderings: [], error: null };
       }
       
-      return generateValidOrderings(parsed.components, 10); // Increased limit to show more permutations
+      // Filter to only scenario components (type: 'scenario')
+      const scenarioComponents = parsed.components.filter(comp => comp.type === 'scenario');
+      
+      if (scenarioComponents.length === 0) {
+        return { validOrderings: [], error: 'No scenario components found' };
+      }
+      
+      // Create a clean copy of scenario components with filtered dependencies
+      const cleanScenarioComponents = scenarioComponents.map(comp => ({
+        ...comp,
+        prerequisites: comp.prerequisites && Array.isArray(comp.prerequisites)
+          ? comp.prerequisites.filter(prereqId => {
+              // Only keep prerequisites that reference scenario components
+              const prereqComponent = parsed.components.find(c => c.id === prereqId);
+              return prereqComponent && prereqComponent.type === 'scenario';
+            })
+          : []
+      }));
+      
+      return generateValidOrderings(cleanScenarioComponents, 10); // Increased limit to show more permutations
     } catch (error) {
       return { validOrderings: [], error: `Error parsing components: ${error.message}` };
     }
@@ -166,31 +186,31 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     const totalTests = 6;
     const permCount = orderedSelectedPermutations.length;
     
+    let result;
+    
     if (permCount === 1) {
       // All 6 tests use the same permutation
-      return orderedSelectedPermutations[0];
-    }
-    
-    if (permCount === 2) {
+      result = orderedSelectedPermutations[0];
+    } else if (permCount === 2) {
       // First permutation in valid orderings gets first 3 tests, second gets last 3 tests
-      return testIndex < 3 ? orderedSelectedPermutations[0] : orderedSelectedPermutations[1];
-    }
-    
-    if (permCount === 3) {
+      result = testIndex < 3 ? orderedSelectedPermutations[0] : orderedSelectedPermutations[1];
+    } else if (permCount === 3) {
       // First permutation gets tests 0,1, second gets tests 2,3, third gets tests 4,5
-      return orderedSelectedPermutations[Math.floor(testIndex / 2)];
+      result = orderedSelectedPermutations[Math.floor(testIndex / 2)];
+    } else {
+      // 4+ permutations: first gets extra, others get minimum 2
+      const baseTestsPerPerm = Math.floor(totalTests / permCount);
+      const extraTests = totalTests % permCount;
+      
+      if (testIndex < (baseTestsPerPerm + extraTests)) {
+        result = orderedSelectedPermutations[0];
+      } else {
+        const permIndex = Math.floor((testIndex - (baseTestsPerPerm + extraTests)) / baseTestsPerPerm) + 1;
+        result = orderedSelectedPermutations[permIndex] || orderedSelectedPermutations[0]; // fallback
+      }
     }
     
-    // 4+ permutations: first gets extra, others get minimum 2
-    const baseTestsPerPerm = Math.floor(totalTests / permCount);
-    const extraTests = totalTests % permCount;
-    
-    if (testIndex < (baseTestsPerPerm + extraTests)) {
-      return orderedSelectedPermutations[0];
-    }
-    
-    const permIndex = Math.floor((testIndex - (baseTestsPerPerm + extraTests)) / baseTestsPerPerm) + 1;
-    return orderedSelectedPermutations[permIndex] || orderedSelectedPermutations[0]; // fallback
+    return result;
   };
 
   // Get color for permutation based on its index in the selected set
@@ -257,6 +277,22 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     }
   }, [selectedPermutations]);
 
+  // Clean up stale permutations when component structure changes
+  useEffect(() => {
+    if (selectedPermutations.size > 0) {
+      const { validOrderings } = generatePermutations(formData?.quizit_component_structure || '');
+      
+      // Remove any selected permutations that are no longer valid
+      const validSelectedPermutations = Array.from(selectedPermutations).filter(perm => 
+        validOrderings.includes(perm)
+      );
+      
+      if (validSelectedPermutations.length !== selectedPermutations.size) {
+        setSelectedPermutations(new Set(validSelectedPermutations));
+      }
+    }
+  }, [formData?.quizit_component_structure]);
+
   // Handle component deletion
   const handleComponentDelete = (componentIndex) => {
     try {
@@ -300,6 +336,44 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     }
   };
 
+  // Handle component type toggle
+  const handleComponentTypeToggle = (componentIndex) => {
+    try {
+      const parsed = JSON.parse(formData.quizit_component_structure);
+      if (!parsed.components || !Array.isArray(parsed.components)) return;
+      
+              // Toggle the component type between 'scenario' and 'reasoning'
+        const newComponents = [...parsed.components];
+        newComponents[componentIndex].type = newComponents[componentIndex].type === 'scenario' ? 'reasoning' : 'scenario';
+      
+      // Update the component structure
+      const newStructure = { ...parsed, components: newComponents };
+      handleInputChange('quizit_component_structure', JSON.stringify(newStructure));
+      
+      // Clear all tests since component types changed
+      const clearedResults = {};
+      const clearedStates = {};
+      
+      [0,1,2,3,4,5].forEach(index => {
+        clearedResults[index] = { 
+          quizit: '', 
+          reasoning: '', 
+          feedback: '', 
+          permutation: null
+        };
+        clearedStates[index] = { isTested: false, isConfirmed: false };
+      });
+      
+      setQuizitResults(clearedResults);
+      setTestStates(clearedStates);
+      
+      // Emit the cleared state to parent so it can be saved
+      emitDraftChange(currentHash, clearedResults, clearedStates);
+    } catch (error) {
+      console.error('Error toggling component type:', error);
+    }
+  };
+
   // Handle adding new component
   const handleAddComponent = () => {
     try {
@@ -311,10 +385,11 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
       
       // Create new component
       const newComponent = {
-        id: nextId,
-        text: '',
-        isPrerequisite: false,
-        prerequisites: []
+                           id: nextId,
+                   text: '',
+                   type: 'scenario', // Default to Scenario Components
+                   isPrerequisite: false,
+                   prerequisites: []
       };
       
       // Add to components array
@@ -398,28 +473,44 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     }
   };
 
-  // Clear all tests when dependencies change (component structure changes)
+  // Clear all tests and selected permutations when dependencies change (component structure changes)
   useEffect(() => {
     if (formData?.quizit_component_structure) {
-      // Clear all tests when component structure changes
-      const clearedResults = {};
-      const clearedStates = {};
+      // Check if this is the initial load by comparing with the last loaded hash
+      const currentStructureHash = JSON.stringify(formData.quizit_component_structure);
       
-      [0,1,2,3,4,5].forEach(index => {
-        clearedResults[index] = { 
-          quizit: '', 
-          reasoning: '', 
-          feedback: '', 
-          permutation: null
-        };
-        clearedStates[index] = { isTested: false, isConfirmed: false };
-      });
-      
-      setQuizitResults(clearedResults);
-      setTestStates(clearedStates);
-      
-      // Emit the cleared state to parent so it can be saved
-      emitDraftChange(currentHash, clearedResults, clearedStates);
+      if (lastLoadedHashRef.current && lastLoadedHashRef.current !== currentStructureHash) {
+        // This is an actual change, not initial load
+        
+        // Clear all tests when component structure changes
+        const clearedResults = {};
+        const clearedStates = {};
+        
+        [0,1,2,3,4,5].forEach(index => {
+          clearedResults[index] = { 
+            quizit: '', 
+            reasoning: '', 
+            feedback: '', 
+            permutation: null
+          };
+          clearedStates[index] = { isTested: false, isConfirmed: false };
+        });
+        
+        setQuizitResults(clearedResults);
+        setTestStates(clearedStates);
+        
+        // Clear selected permutations since the dependency graph may have changed
+        setSelectedPermutations(new Set());
+        
+        // Also clear the parent's quizit_valid_permutations field
+        handleInputChange('quizit_valid_permutations', '[]');
+        
+        // Emit the cleared state to parent so it can be saved
+        emitDraftChange(currentHash, clearedResults, clearedStates);
+      } else {
+        // Store the hash for future comparisons
+        lastLoadedHashRef.current = currentStructureHash;
+      }
     }
   }, [formData?.quizit_component_structure]);
 
@@ -430,6 +521,11 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
 
 
   const emitDraftChange = (hash = currentHash, localResults = quizitResults, localStates = testStates) => {
+    // Don't emit if we don't have a valid hash (unless we're explicitly clearing tests)
+    if (!hash) {
+      return;
+    }
+    
     if (!onTestsDraftChange) return;
     const slots = {};
     [0,1,2,3,4,5].forEach(i => {
@@ -463,13 +559,14 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
 
   // Hydrate local state from parent drafts (persists across tab switches)
   useEffect(() => {
-    
     if (!drafts) return;
+    
     // If drafts has a promptHash or any slot content, hydrate
     const hasAny = !!drafts.promptHash || [0,1,2,3,4,5].some(i => {
       const s = drafts.slots?.[i];
       return s && (s.quizit || s.reasoning || s.feedback || s.isTested || s.confirmed);
     });
+    
     if (!hasAny) return;
 
     
@@ -481,14 +578,15 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
       4: { isTested: !!drafts.slots?.[4]?.isTested, isConfirmed: !!drafts.slots?.[4]?.confirmed },
       5: { isTested: !!drafts.slots?.[5]?.isTested, isConfirmed: !!drafts.slots?.[5]?.confirmed },
     };
-    const nextResults = {
-      0: { quizit: drafts.slots?.[0]?.quizit || '', reasoning: drafts.slots?.[0]?.reasoning || '', feedback: drafts.slots?.[0]?.feedback || '', permutation: drafts.slots?.[0]?.permutation || null },
-      1: { quizit: drafts.slots?.[1]?.quizit || '', reasoning: drafts.slots?.[1]?.reasoning || '', feedback: drafts.slots?.[1]?.feedback || '', permutation: drafts.slots?.[1]?.permutation || null },
-      2: { quizit: drafts.slots?.[2]?.quizit || '', reasoning: drafts.slots?.[2]?.reasoning || '', feedback: drafts.slots?.[2]?.feedback || '', permutation: drafts.slots?.[2]?.permutation || null },
-      3: { quizit: drafts.slots?.[3]?.quizit || '', reasoning: drafts.slots?.[3]?.reasoning || '', feedback: drafts.slots?.[3]?.feedback || '', permutation: drafts.slots?.[3]?.permutation || null },
-      4: { quizit: drafts.slots?.[4]?.quizit || '', reasoning: drafts.slots?.[4]?.reasoning || '', feedback: drafts.slots?.[4]?.feedback || '', permutation: drafts.slots?.[4]?.permutation || null },
-      5: { quizit: drafts.slots?.[5]?.quizit || '', reasoning: drafts.slots?.[5]?.reasoning || '', feedback: drafts.slots?.[5]?.feedback || '', permutation: drafts.slots?.[5]?.permutation || null },
-    };
+                const nextResults = {
+        0: { quizit: drafts.slots?.[0]?.quizit || '', reasoning: drafts.slots?.[0]?.reasoning || '', feedback: drafts.slots?.[0]?.feedback || '', permutation: drafts.slots?.[0]?.permutation || null },
+        1: { quizit: drafts.slots?.[1]?.quizit || '', reasoning: drafts.slots?.[1]?.reasoning || '', feedback: drafts.slots?.[1]?.feedback || '', permutation: drafts.slots?.[1]?.permutation || null },
+        2: { quizit: drafts.slots?.[2]?.quizit || '', reasoning: drafts.slots?.[2]?.reasoning || '', feedback: drafts.slots?.[2]?.feedback || '', permutation: drafts.slots?.[2]?.permutation || null },
+        3: { quizit: drafts.slots?.[3]?.quizit || '', reasoning: drafts.slots?.[3]?.reasoning || '', feedback: drafts.slots?.[3]?.feedback || '', permutation: drafts.slots?.[3]?.permutation || null },
+        4: { quizit: drafts.slots?.[4]?.quizit || '', reasoning: drafts.slots?.[4]?.reasoning || '', feedback: drafts.slots?.[4]?.feedback || '', permutation: drafts.slots?.[4]?.permutation || null },
+        5: { quizit: drafts.slots?.[5]?.quizit || '', reasoning: drafts.slots?.[5]?.reasoning || '', feedback: drafts.slots?.[5]?.feedback || '', permutation: drafts.slots?.[5]?.permutation || null },
+      };
+    
     setCurrentHash(drafts.promptHash || null);
     setTestStates(nextStates);
     setQuizitResults(nextResults);
@@ -524,14 +622,28 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
         setCurrentHash(hash);
       }
       
-      // Parse the structured components and reorder based on permutation
-      let components = '';
+      // Parse the structured components and separate by type
+      let scenarioComponents = '';
+      let reasoningComponents = '';
       try {
         const parsed = JSON.parse(formData.quizit_component_structure);
         if (parsed.components && Array.isArray(parsed.components)) {
-          // Reorder components based on permutation
-          const reorderedComponents = reorderComponentsByPermutation(parsed.components, permutation);
-          components = reorderedComponents.map(c => c.text).join('\n');
+          // Filter to scenario and reasoning components
+          const scenarioComps = parsed.components.filter(comp => comp.type === 'scenario');
+          const reasoningComps = parsed.components.filter(comp => comp.type === 'reasoning');
+          
+          if (scenarioComps.length === 0) {
+            alert('No scenario components found. Please add at least one scenario component.');
+            setIsTesting(false);
+            return;
+          }
+          
+          // Reorder scenario components based on permutation
+          const reorderedScenarioComps = reorderComponentsByPermutation(scenarioComps, permutation);
+          scenarioComponents = reorderedScenarioComps.map(c => c.text).join('\n');
+          
+          // Get reasoning components (no reordering needed)
+          reasoningComponents = reasoningComps.map(c => c.text).join('\n');
         } else {
           throw new Error('Invalid component structure');
         }
@@ -542,20 +654,48 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
       }
       
       const wordsToAvoid = formData.words_to_avoid || '';
-      const combinedContent = `Components:\n${components}\n\nWords to Avoid:\n${wordsToAvoid}`;
+      const combinedContent = `Scenario Components:\n${scenarioComponents}\n\nReasoning Components:\n${reasoningComponents}\n\nWords to Avoid:\n${wordsToAvoid}\n\nCard Idea:\n${formData.card_idea || ''}`;
       
-      const { data, error } = await supabase.functions.invoke('quizit-generate', {
+      // Step 1: Generate scenario
+      const { data: scenarioData, error: scenarioError } = await supabase.functions.invoke('quizit-scenario', {
         body: { 
-          components: components,
+          scenarioComponents: scenarioComponents,
           wordsToAvoid: formData.words_to_avoid || ''
         }
       });
-      if (error) {
-        console.error('Error generating quizit:', error);
-        alert('Failed to generate. Please try again.');
+      
+      if (scenarioError) {
+        console.error('Error generating scenario:', scenarioError);
+        alert('Failed to generate scenario. Please try again.');
         return;
       }
-      const { quizit = '', reasoning = '' } = (data?.data || data) || {};
+      
+      console.log('Scenario response:', scenarioData);
+      
+      // Step 2: Generate reasoning using the scenario
+      const reasoningBody = { 
+        scenarioComponents: scenarioComponents,
+        reasoningComponents: reasoningComponents,
+        cardIdea: formData.card_idea || '',
+        generatedQuizit: scenarioData
+      };
+      
+      console.log('Sending to quizit-reasoning:', reasoningBody);
+      
+      const { data: reasoningData, error: reasoningError } = await supabase.functions.invoke('quizit-reasoning', {
+        body: reasoningBody
+      });
+      
+      if (reasoningError) {
+        console.error('Error generating reasoning:', reasoningError);
+        alert('Failed to generate reasoning. Please try again.');
+        return;
+      }
+      
+      const { quizit = '', reasoning = '' } = { 
+        quizit: scenarioData, 
+        reasoning: reasoningData 
+      };
       // Store permutation with test results
       setQuizitResults(prev => ({
         ...prev,
@@ -685,6 +825,68 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     
   }, [currentTestIndex, testStates[currentTestIndex]?.isTested, quizitResults[currentTestIndex]?.quizit, quizitResults[currentTestIndex]?.reasoning]);
 
+  // Auto-resize component textareas on initial load and content changes
+  useEffect(() => {
+    if (formData?.quizit_component_structure) {
+      try {
+        const parsed = JSON.parse(formData.quizit_component_structure);
+        if (parsed.components && Array.isArray(parsed.components)) {
+          // Migrate existing components to have type field if missing
+          let needsUpdate = false;
+          const migratedComponents = parsed.components.map(comp => {
+                         if (!comp.type) {
+               needsUpdate = true;
+               return { ...comp, type: 'scenario' }; // Default to Scenario Components
+             }
+            return comp;
+          });
+          
+          // Update if migration was needed
+          if (needsUpdate) {
+            const newStructure = { ...parsed, components: migratedComponents };
+            handleInputChange('quizit_component_structure', JSON.stringify(newStructure));
+          }
+          
+          // Auto-resize all component textareas after a brief delay to ensure DOM is ready
+          setTimeout(() => {
+            migratedComponents.forEach((component, index) => {
+              const textarea = document.querySelector(`textarea[data-component-id="${component.id}"]`);
+              if (textarea) {
+                textarea.style.height = 'auto';
+                textarea.style.height = textarea.scrollHeight + 'px';
+              }
+            });
+          }, 100);
+        }
+      } catch (error) {
+        console.error('Error auto-resizing component textareas:', error);
+      }
+    }
+  }, [formData?.quizit_component_structure]);
+
+  // Auto-resize words to avoid textareas on initial load and content changes
+  useEffect(() => {
+    if (formData?.words_to_avoid) {
+      try {
+        const words = parseWordsToAvoid(formData.words_to_avoid);
+        if (words && Array.isArray(words)) {
+          // Auto-resize all word textareas after a brief delay to ensure DOM is ready
+          setTimeout(() => {
+            words.forEach((word, index) => {
+              const textarea = document.querySelector(`textarea[data-word-id="${index}"]`);
+              if (textarea) {
+                textarea.style.height = 'auto';
+                textarea.style.height = textarea.scrollHeight + 'px';
+              }
+            });
+          }, 100);
+        }
+      } catch (error) {
+        console.error('Error auto-resizing word textareas:', error);
+      }
+    }
+  }, [formData?.words_to_avoid]);
+
   return (
     <div className="flex-1 p-6 overflow-y-auto">
       {/* Quizit Components Section */}
@@ -705,6 +907,8 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
                     [0, 1, 2, 3, 4, 5].filter(index => 
                       testStates[index]?.isTested && testStates[index]?.confirmed
                     ).length;
+                  
+
                   
                   return confirmedCount;
                 })()}/6
@@ -906,6 +1110,8 @@ Now, using the components you just generated, create a structured quizit configu
 
 1. Which components are prerequisites (must come before others)
 2. Any dependency relationships between components
+3. Which components should be used for the quizit scenario (type: "scenario")
+4. Which components should be used only for reasoning (type: "reasoning")
 
 Return this structured configuration in the following JSON format:
 
@@ -914,6 +1120,7 @@ Return this structured configuration in the following JSON format:
     {
       "id": "A",
       "text": "[component text]",
+      "type": "scenario",
       "isPrerequisite": true/false,
       "prerequisites": ["array of component IDs this depends on, if any]"
     }
@@ -924,7 +1131,14 @@ Rules:
 - Prerequisites must come before non-prerequisites
 - Components can depend on other components
 - Use letters A, B, C, D... for component IDs
-- Sort components so prerequisites appear first in the list`;
+- Sort components so prerequisites appear first in the list
+- Set type: "scenario" for components that should appear in the quizit scenario
+- Set type: "reasoning" for components that are additional concepts for reasoning (not in the scenario)
+- Default all components to type: "scenario" unless they should only appear in reasoning
+
+Example:
+- type: "scenario" components are the core elements that will appear in the quizit scenario (e.g., "Person A is pursuing a bold project", "Person A continues working a stable job")
+- type: "reasoning" components are additional concepts the reader should think about (e.g., "Person A should consider risk tolerance", "Person A should evaluate opportunity costs")`;
                 
                 const payload = `${instructions}\n\n---\n\nCard JSON:\n${JSON.stringify(cardJson, null, 2)}`;
                 navigator.clipboard.writeText(payload);
@@ -993,51 +1207,135 @@ Rules:
                 try {
                   const parsed = JSON.parse(formData.quizit_component_structure);
                   if (parsed.components && Array.isArray(parsed.components)) {
+                                        // Separate components by type
+                    const quizitComponents = parsed.components.filter(comp => comp.type === 'scenario');
+                    const reasoningComponents = parsed.components.filter(comp => comp.type === 'reasoning');
+                    
                     return (
-                      <div className="space-y-2 mb-4">
-                        {parsed.components.map((component, index) => (
-                          <div key={component.id} className="flex items-center space-x-3">
-                            {/* Component content with letter prefix */}
-                            <div className="flex-1 bg-white rounded border border-gray-200 p-3">
-                              <div className="text-sm text-gray-900">
-                                <div className="flex">
-                                  <span className="font-bold text-gray-700 flex-shrink-0 mr-3">{component.id})</span>
+                      <div className="space-y-4 mb-4">
+                        {/* Scenario Components Section */}
+                        <div>
+                          <div className="text-xs text-gray-600 font-medium mb-2">Scenario Components</div>
+                          <div className="space-y-2">
+                            {quizitComponents.map((component, index) => {
+                              const originalIndex = parsed.components.findIndex(c => c.id === component.id);
+                              return (
+                                <div key={component.id} className="flex items-center space-x-3">
+                                  {/* Component content with letter prefix */}
+                                  <div className="flex-1 bg-white rounded border border-gray-200 p-3">
+                                    <div className="text-sm text-gray-900">
+                                      <div className="flex">
+                                        <span className="font-bold text-gray-700 flex-shrink-0 mr-3">{component.id})</span>
           <textarea
-                                    value={component.text}
+                                          value={component.text}
             onChange={(e) => {
-                                      const newComponents = [...parsed.components];
-                                      newComponents[index].text = e.target.value;
-                                      const newStructure = { ...parsed, components: newComponents };
-                                      handleInputChange('quizit_component_structure', JSON.stringify(newStructure));
-                                      
-                                      // Auto-resize textarea to fit content
-                                      e.target.style.height = 'auto';
-                                      e.target.style.height = e.target.scrollHeight + 'px';
-                                    }}
-                                    className="flex-1 text-gray-900 bg-transparent border-none outline-none focus:ring-0 p-0 resize-none overflow-hidden"
-                                    placeholder="Enter component text..."
-                                    rows={1}
-                                    style={{ minHeight: '1.5rem' }}
-                                    data-component-id={component.id}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Delete Button */}
-                            <button
-                              onClick={() => handleComponentDelete(index)}
-                              className="flex-shrink-0 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-                              title="Delete component"
-                            >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                            
+                                            const newComponents = [...parsed.components];
+                                            newComponents[originalIndex].text = e.target.value;
+                                            const newStructure = { ...parsed, components: newComponents };
+                                            handleInputChange('quizit_component_structure', JSON.stringify(newStructure));
+                                            
+                                            // Auto-resize textarea to fit content
+                                            e.target.style.height = 'auto';
+                                            e.target.style.height = e.target.scrollHeight + 'px';
+                                          }}
+                                          className="flex-1 text-gray-900 bg-transparent border-none outline-none focus:ring-0 p-0 resize-none overflow-hidden"
+                                          placeholder="Enter component text..."
+                                          rows={1}
+                                          style={{ minHeight: '1.5rem' }}
+                                          data-component-id={component.id}
+                                        />
+                                      </div>
+                                    </div>
+        </div>
 
+                                                                     {/* Toggle Button */}
+                                   <button
+                                     onClick={() => handleComponentTypeToggle(originalIndex)}
+                                     className="flex-shrink-0 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                                     title="Move to Reasoning Components"
+                                   >
+                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                     </svg>
+                                   </button>
+                                   
+                                   {/* Delete Button */}
+                                   <button
+                                     onClick={() => handleComponentDelete(originalIndex)}
+                                     className="flex-shrink-0 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                     title="Delete component"
+                                   >
+                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" />
+                                     </svg>
+                                   </button>
+                                </div>
+                              );
+                            })}
                           </div>
-                        ))}
+                        </div>
+                        
+                        {/* Reasoning Components Section */}
+        <div>
+                          <div className="text-xs text-gray-600 font-medium mb-2">Reasoning Components</div>
+                          <div className="space-y-2">
+                            {reasoningComponents.map((component, index) => {
+                              const originalIndex = parsed.components.findIndex(c => c.id === component.id);
+                              return (
+                                <div key={component.id} className="flex items-center space-x-3">
+                                  {/* Component content with letter prefix */}
+                                  <div className="flex-1 bg-white rounded border border-gray-200 p-3">
+                                    <div className="text-sm text-gray-900">
+                                      <div className="flex">
+                                        <span className="font-bold text-gray-700 flex-shrink-0 mr-3">{component.id})</span>
+          <textarea
+                                          value={component.text}
+            onChange={(e) => {
+                                            const newComponents = [...parsed.components];
+                                            newComponents[originalIndex].text = e.target.value;
+                                            const newStructure = { ...parsed, components: newComponents };
+                                            handleInputChange('quizit_component_structure', JSON.stringify(newStructure));
+                                            
+                                            // Auto-resize textarea to fit content
+                                            e.target.style.height = 'auto';
+                                            e.target.style.height = e.target.scrollHeight + 'px';
+                                          }}
+                                          className="flex-1 text-gray-900 bg-transparent border-none outline-none focus:ring-0 p-0 resize-none overflow-hidden"
+                                          placeholder="Enter component text..."
+                                          rows={1}
+                                          style={{ minHeight: '1.5rem' }}
+                                          data-component-id={component.id}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                                                     {/* Toggle Button */}
+                                   <button
+                                     onClick={() => handleComponentTypeToggle(originalIndex)}
+                                     className="flex-shrink-0 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                                     title="Move to Scenario Components"
+                                   >
+                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                     </svg>
+                                   </button>
+                                   
+                                   {/* Delete Button */}
+                                   <button
+                                     onClick={() => handleComponentDelete(originalIndex)}
+                                     className="flex-shrink-0 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                     title="Delete component"
+                                   >
+                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" />
+                                     </svg>
+                                   </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                         
                         {/* Add Component Button */}
                         <div className="flex items-center space-x-3">
@@ -1050,40 +1348,91 @@ Rules:
                             </svg>
                             <span className="text-sm font-medium">Add Component</span>
                           </button>
-                          <div className="flex-shrink-0 w-7"></div>
+                          <div className="flex-shrink-0 w-18"></div>
                         </div>
                         
                         {/* Dependencies Editor */}
                         <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded">
                           <div className="text-xs text-gray-600 mb-2 font-medium">Dependencies:</div>
-                          <div className="space-y-2">
-                            {parsed.components.map((component, index) => (
-                              <div key={index} className="flex items-center text-xs text-gray-700">
-                                <span className="font-mono mr-2">{component.id}</span>
-                                <span className="mx-2">←</span>
-                                <input
-                                  type="text"
-                                  value={component.prerequisites ? component.prerequisites.join(', ') : ''}
-                                  onChange={(e) => {
-                                    const input = e.target.value;
-                                    // Parse input and auto-format with commas and spaces
-                                    const prerequisites = input
-                                      .replace(/[,\s]+/g, '') // Remove existing commas and spaces
-                                      .split('')
-                                      .filter(char => char.length > 0)
-                                      .map(char => char.toUpperCase());
-                                    
-                                    const newComponents = [...parsed.components];
-                                    newComponents[index].prerequisites = prerequisites.length > 0 ? prerequisites : [];
-                                    const newStructure = { ...parsed, components: newComponents };
-                                    handleInputChange('quizit_component_structure', JSON.stringify(newStructure));
-                                  }}
-                                  className="flex-1 text-gray-700 bg-transparent border-none outline-none focus:ring-0 p-0 font-mono"
-                                  placeholder="_"
-                                />
+                          {(() => {
+                            // Filter to only scenario components
+                            const scenarioComponents = parsed.components.filter(comp => comp.type === 'scenario');
+                            
+                            if (scenarioComponents.length === 0) {
+                              return (
+                                <div className="text-xs text-gray-500 italic">
+                                  No scenario components found
+                                </div>
+                              );
+                            }
+                            
+                            // Check if any dependencies reference reasoning components
+                            let hasHiddenDependencies = false;
+                            let hiddenDependencyCount = 0;
+                            
+                            scenarioComponents.forEach(component => {
+                              if (component.prerequisites && Array.isArray(component.prerequisites)) {
+                                component.prerequisites.forEach(prereqId => {
+                                  const prereqComponent = parsed.components.find(c => c.id === prereqId);
+                                  if (prereqComponent && prereqComponent.type === 'reasoning') {
+                                    hasHiddenDependencies = true;
+                                    hiddenDependencyCount++;
+                                  }
+                                });
+                              }
+                            });
+                            
+                            return (
+                              <div className="space-y-2">
+                                {scenarioComponents.map((component, index) => {
+                                  // Find the original index in the full components array
+                                  const originalIndex = parsed.components.findIndex(c => c.id === component.id);
+                                  
+                                  // Filter prerequisites to only show scenario components
+                                  const visiblePrerequisites = component.prerequisites && Array.isArray(component.prerequisites) 
+                                    ? component.prerequisites.filter(prereqId => {
+                                        const prereqComponent = parsed.components.find(c => c.id === prereqId);
+                                        return prereqComponent && prereqComponent.type === 'scenario';
+                                      })
+                                    : [];
+                                  
+                                  return (
+                                    <div key={component.id} className="flex items-center text-xs text-gray-700">
+                                      <span className="font-mono mr-2">{component.id}</span>
+                                      <span className="mx-2">←</span>
+                                      <input
+                                        type="text"
+                                        value={visiblePrerequisites.join(', ')}
+                                        onChange={(e) => {
+                                          const input = e.target.value;
+                                          // Parse input and auto-format with commas and spaces
+                                          const prerequisites = input
+                                            .replace(/[,\s]+/g, '') // Remove existing commas and spaces
+                                            .split('')
+                                            .filter(char => char.length > 0)
+                                            .map(char => char.toUpperCase());
+                                          
+                                          const newComponents = [...parsed.components];
+                                          newComponents[originalIndex].prerequisites = prerequisites.length > 0 ? prerequisites : [];
+                                          const newStructure = { ...parsed, components: newComponents };
+                                          handleInputChange('quizit_component_structure', JSON.stringify(newStructure));
+                                        }}
+                                        className="flex-1 text-gray-700 bg-transparent border-none outline-none focus:ring-0 p-0 font-mono"
+                                        placeholder="_"
+                                      />
+                                    </div>
+                                  );
+                                })}
+                                
+                                {/* Show note about hidden dependencies */}
+                                {hasHiddenDependencies && (
+                                  <div className="text-xs text-gray-500 italic mt-2 pt-2 border-t border-gray-200">
+                                    Some dependencies are hidden (referenced components are in reasoning section)
+                                  </div>
+                                )}
                               </div>
-                            ))}
-                          </div>
+                            );
+                          })()}
                         </div>
                         
                         {/* Valid Permutations Display */}
@@ -1123,6 +1472,7 @@ Rules:
                                             ? 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
                                             : 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
                                         }`}
+                                        title={`Selected: ${isSelected}, Can Select: ${canSelect}, Total Selected: ${selectedPermutations.size}`}
                                       >
                                         {permutation}
                                       </button>
@@ -1300,6 +1650,38 @@ Rules:
 
       {/* Current Test Section */}
       <div className="bg-white rounded-lg p-6">
+        {/* Section Header with Reset Button */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-medium text-lg">Test Results</h3>
+          <button
+            onClick={() => {
+              // Clear all tests
+              const clearedResults = {};
+              const clearedStates = {};
+              
+              [0,1,2,3,4,5].forEach(index => {
+                clearedResults[index] = { 
+                  quizit: '', 
+                  reasoning: '', 
+                  feedback: '', 
+                  permutation: null
+                };
+                clearedStates[index] = { isTested: false, isConfirmed: false };
+              });
+              
+              setQuizitResults(clearedResults);
+              setTestStates(clearedStates);
+              
+              // Emit the cleared state to parent so it can be saved
+              emitDraftChange(currentHash, clearedResults, clearedStates);
+            }}
+            className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
+            title="Reset all tests"
+          >
+            Reset
+          </button>
+        </div>
+        
         {/* Test Navigation */}
         <div className="grid grid-cols-6 gap-2 mb-6">
           {[0, 1, 2, 3, 4, 5].map((index) => {
@@ -1334,9 +1716,9 @@ Rules:
           <div className="bg-gray-50 rounded-lg p-4">
             <h4 className="font-medium mb-2">Generated Quizit</h4>
             {testStates[currentTestIndex]?.isTested ? (
-              <textarea
-                ref={quizitRef}
-                value={quizitResults[currentTestIndex]?.quizit || ''}
+                          <textarea
+              ref={quizitRef}
+              value={quizitResults[currentTestIndex]?.quizit || ''}
                 onChange={(e) => {
                   const next = {
                     ...quizitResults,

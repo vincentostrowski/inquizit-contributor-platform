@@ -1,6 +1,6 @@
-// Refactored edge function for generating quizit scenarios
-// Input: { components: string, wordsToAvoid: string }
-// Output: { quizit: string, reasoning: string }
+  // Refactored edge function for generating quizit scenarios
+  // Input: { scenarioComponents: string, reasoningComponents: string, wordsToAvoid: string, cardIdea: string }
+  // Output: { quizit: string, reasoning: string }
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
@@ -15,11 +15,11 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  try {
-    const { components, wordsToAvoid } = await req.json()
-    if (!components || typeof components !== 'string') {
+      try {
+      const { scenarioComponents, reasoningComponents, wordsToAvoid, cardIdea } = await req.json()
+      if (!scenarioComponents || typeof scenarioComponents !== 'string') {
       return new Response(
-        JSON.stringify({ error: 'Missing components' }),
+        JSON.stringify({ error: 'Missing scenarioComponents' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -32,22 +32,39 @@ serve(async (req) => {
       )
     }
 
-    const system = `You are a JSON-only responder. You ALWAYS return a single JSON object with exactly two string fields: "quizit" and "reasoning". No markdown, no prose outside JSON, no extra keys.`
+    const system = `You write one short scenario ("quizit") to test a concept.
+Priorities: 1) Valid JSON only, 2) Follow constraints, 3) Be concise.
+Hard rules:
+- Output JSON only with keys {quizit, reasoning}.
+- Scenario is second person ("you…"), preserves given order; combine only consecutive items; ≤1 sentence per item.
+- No filler lines.
+- REASONING MUST BE EXPLANATORY-ONLY: describe events, causes, and implications in the scenario; do not talk about the text itself, its structure, the prompt, fields, or your generation process.
+- DISALLOWED REASONING BEHAVIORS (examples, not keywords):
+  1) Referring to text units (e.g., "the first sentence…", "the last line…").
+  2) Mapping/aligning to scaffolding (e.g., "this matches the listed items", "this covers the second part").
+  3) Mentioning artifacts of formatting or schema (e.g., "in the JSON…", "in this field…").
+  4) Self-referential process talk (e.g., "I wrote…", "the prompt says…").
+  5) Labeling with placeholders ("Person A/B", "component", "anchor", etc.).
+- If any rule is violated on your first attempt, silently revise once and re-emit.`
     
-    const user = `Write a concise scenario written in second person ("you..."), in which the central idea is present but never directly named. Use a maximum of one sentence per component, but if possible, combine multiple components into single sentences. The scenario should present these components in the exact order they appear below.
+    const user = `Write a concise scenario. ≤1 sentence per required item; combine only consecutive items. Total 2–6 sentences.
 
-The scenario should incorporate these key elements:
-${components}
+Concept (refer implicitly; do not name it outright):
+${cardIdea}
 
-Do not use or reference any of the following words, phrases, or examples:
+Items IN ORDER (array):
+${scenarioComponents}
+
+Banned phrases (array) [optional, may omit to save tokens]:
 ${wordsToAvoid}
 
-Keep descriptive language minimal and purposeful. Every sentence must directly address at least one of the key components above. Avoid sentences that are purely atmospheric or don't contribute to the core scenario. Follow the component order exactly as listed.
-
-Return strictly JSON as:
+Return strictly:
 {"quizit":"...","reasoning":"..."}
 
-For the reasoning field, explain how someone would recognize the underlying concept in this situation and how they would use that concept to reason about or react to what's happening.`
+quizit: second person; follow item order; 80–140 words; no filler.
+reasoning: two paragraphs separated by exactly one blank line (\\n\\n).
+  • Paragraph 1: Explain, in plain language, how the situation unfolds such that each required element is present—in order—using natural temporal/causal cues (e.g., "at first… then… as a result…"). Do not reference the text, its structure, or any scaffolding.
+  • Paragraph 2: Explain how the situation expresses the underlying idea and discuss the provided considerations in practical terms. Do not reference the text, its structure, or any scaffolding.`
 
     // Log the final prompt for debugging
     console.log('Sending to ChatGPT:', user);
