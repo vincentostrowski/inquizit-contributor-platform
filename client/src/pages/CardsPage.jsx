@@ -15,7 +15,7 @@ const CardsPage = () => {
   const { currentBook } = useBook();
   const { sectionId, selectSection } = useUrlState();
   const [selectedSection, setSelectedSection] = useState(null);
-  const { sections, updateSection: updateSectionFromHook, updateSectionsWithCards } = useSections(currentBook);
+  const { sections, updateSection: updateSectionFromHook } = useSections(currentBook);
   
   // Card-related state (moved from CardDrawer)
   const [cards, setCards] = useState([]);
@@ -171,21 +171,8 @@ const CardsPage = () => {
   }, [sections]);
 
   // Update sections with card completion data when cards change
-  useEffect(() => {
-    if (cards.length > 0 && sections.length > 0) {
-      // Only update if card completion status has actually changed
-      const currentCompletionHash = cards
-        .map(c => c.id + (c.card_completion_tracking?.is_completed ? '1' : '0'))
-        .join('|');
-      
-      // Check if we need to update (avoid unnecessary re-renders)
-      const needsUpdate = sections[0]?.completionHash !== currentCompletionHash;
-      
-      if (needsUpdate) {
-        updateSectionsWithCards(cards);
-      }
-    }
-  }, [cards.length, sections.length, updateSectionsWithCards]);
+  // Removed this useEffect as it was causing unnecessary refreshes during drag & drop
+  // Section completion updates are now handled directly in handleCompletionUpdate
 
   // Fetch cards when sectionWithCompletion changes
   useEffect(() => {
@@ -566,13 +553,13 @@ const CardsPage = () => {
               prompt_hash: newPromptHash,
               quizit: slotData.quizit || '',
               reasoning: slotData.reasoning || '',
-              feedback: slotData.feedback || '',
+
               confirmed: !!slotData.confirmed,
               permutation: slotData.permutation || calculatedPermutation || null
             };
             
             // Debug logging for empty slots
-            if (!slotData.quizit && !slotData.reasoning && !slotData.feedback) {
+            if (!slotData.quizit && !slotData.reasoning) {
               console.log(`Slot ${slot} is empty, saving with permutation: ${row.permutation}`);
             }
             

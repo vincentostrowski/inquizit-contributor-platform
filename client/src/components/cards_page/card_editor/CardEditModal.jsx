@@ -3,6 +3,7 @@ import { supabase } from '../../../services/supabaseClient';
 import CardTab from './CardTab';
 import ContentTab from './ContentTab';
 import QuizitTab from './QuizitTab';
+import RelatedTab from './RelatedTab';
 import ImageReferenceSelector from './ImageReferenceSelector';
 import { generateQuizitHash } from '../../../utils/hashUtils';
 
@@ -39,6 +40,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     quizit_component_structure: '',
     quizit_valid_permutations: '',
     words_to_avoid: '',
+    theme_injections: '',
     content: '',
     order: '',
     banner: '',
@@ -101,6 +103,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         quizit_component_structure: card.quizit_component_structure || '',
         quizit_valid_permutations: card.quizit_valid_permutations || '',
         words_to_avoid: card.words_to_avoid || '',
+        theme_injections: card.theme_injections || '',
         content: card.content || '',
         order: card.order || '',
         banner: card.banner || '',
@@ -146,7 +149,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
           const promptHash = generateQuizitHash(components, wordsToAvoid, cardIdea);
           const { data, error } = await supabase
             .from('card_prompt_tests')
-            .select('slot, quizit, reasoning, feedback, confirmed, permutation')
+            .select('slot, quizit, reasoning, confirmed, permutation')
             .eq('card_id', card.id)
             .eq('prompt_hash', promptHash)
             .order('slot', { ascending: true });
@@ -162,7 +165,6 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
             slots[row.slot] = {
               quizit: row.quizit || '',
               reasoning: row.reasoning || '',
-              feedback: row.feedback || '',
               isTested: !!(row.quizit || row.reasoning),
               confirmed: !!row.confirmed,
               permutation: row.permutation || null
@@ -693,7 +695,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         </div>
 
         {/* Original Modal Content */}
-        <div className="bg-gray-100 rounded-r-lg flex-1 flex flex-col relative">
+        <div className="bg-gray-100 rounded-r-lg flex-1 flex flex-col relative overflow-hidden">
 
         {/* Tab Navigation */}
         <div className="flex border-b border-gray-200 bg-gray-50 relative">
@@ -724,19 +726,32 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>
               )}
             </button>
-            <button
-              onClick={() => setActiveTab('quizit')}
-              className={`px-6 py-4 font-medium text-sm transition-all duration-100 relative ${
-                activeTab === 'quizit' 
-                  ? 'text-blue-600 bg-white shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
-              }`}
-            >
-              Quizit
-              {activeTab === 'quizit' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>
-              )}
-            </button>
+                    <button
+          onClick={() => setActiveTab('quizit')}
+          className={`px-6 py-4 font-medium text-sm transition-all duration-100 relative ${
+            activeTab === 'quizit' 
+              ? 'text-blue-600 bg-white shadow-sm' 
+              : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+          }`}
+        >
+          Quizit
+          {activeTab === 'quizit' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('related')}
+          className={`px-6 py-4 font-medium text-sm transition-all duration-100 relative ${
+            activeTab === 'related' 
+              ? 'text-blue-600 bg-white shadow-sm' 
+              : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+          }`}
+        >
+          Related
+          {activeTab === 'related' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>
+          )}
+        </button>
           </div>
           
           {/* Right side buttons - JSON, Conversation Link and Close */}
@@ -839,7 +854,9 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
               handleGenerate={handleGenerate}
               savedPrompt={{
                 quizit_component_structure: card?.quizit_component_structure || '',
-                words_to_avoid: card?.words_to_avoid || ''
+                words_to_avoid: card?.words_to_avoid || '',
+                card_idea: card?.card_idea || '',
+                quizit_valid_permutations: card?.quizit_valid_permutations || ''
               }}
               cardId={card?.id}
               drafts={pendingPromptTests}
@@ -849,6 +866,12 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
               onTestConfirmationChange={handleTestConfirmationChange}
               selectedPermutations={selectedPermutations}
               setSelectedPermutations={setSelectedPermutations}
+            />
+          )}
+          {activeTab === 'related' && (
+            <RelatedTab 
+              card={card}
+              formData={formData}
             />
           )}
         </div>

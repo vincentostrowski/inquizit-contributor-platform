@@ -21,7 +21,12 @@ const CardGrid = ({ cards, onCardClick, onCreateCard, cardSetDone, updatingOrder
   if (cards.length === 0 && !cardSetDone) {
     return (
       <div className="flex justify-start p-10 pb-0">
-        <AddCardPlaceholder onClick={onCreateCard} />
+        <div className="flex flex-col items-center">
+          <AddCardPlaceholder onClick={onCreateCard} />
+          {/* Space below add card placeholder to match card completion badge space */}
+          <div className="h-10 flex items-center justify-center">
+          </div>
+        </div>
       </div>
     );
   }
@@ -72,7 +77,7 @@ const CardGrid = ({ cards, onCardClick, onCreateCard, cardSetDone, updatingOrder
         <div 
           ref={provided.innerRef}
           {...provided.droppableProps}
-          className="flex gap-6 overflow-x-auto custom-scrollbar p-10"
+          className="flex gap-6 overflow-x-auto custom-scrollbar p-10 pb-0"
         >
           <AddCardPlaceholder onClick={onCreateCard} />
           {cards.map((card, index) => (

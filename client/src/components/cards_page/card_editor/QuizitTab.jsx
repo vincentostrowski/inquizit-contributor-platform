@@ -15,12 +15,12 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
   });
   const [promptCopied, setPromptCopied] = useState(false);
   const [quizitResults, setQuizitResults] = useState({
-    0: { quizit: '', reasoning: '', feedback: '' },
-    1: { quizit: '', reasoning: '', feedback: '' },
-    2: { quizit: '', reasoning: '', feedback: '' },
-    3: { quizit: '', reasoning: '', feedback: '' },
-    4: { quizit: '', reasoning: '', feedback: '' },
-    5: { quizit: '', reasoning: '', feedback: '' }
+    0: { quizit: '', reasoning: '' },
+    1: { quizit: '', reasoning: '' },
+    2: { quizit: '', reasoning: '' },
+    3: { quizit: '', reasoning: '' },
+    4: { quizit: '', reasoning: '' },
+    5: { quizit: '', reasoning: '' }
   });
   const [isTesting, setIsTesting] = useState(false);
   const [currentHash, setCurrentHash] = useState(null);
@@ -131,7 +131,6 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
               updated[index] = { 
                 quizit: '', 
                 reasoning: '', 
-                feedback: '', 
                 permutation: null
               };
             });
@@ -262,7 +261,6 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
         clearedResults[index] = { 
           quizit: '', 
           reasoning: '', 
-          feedback: '', 
           permutation: null
         };
         clearedStates[index] = { isTested: false, isConfirmed: false };
@@ -319,7 +317,6 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
         clearedResults[index] = { 
           quizit: '', 
           reasoning: '', 
-          feedback: '', 
           permutation: null
         };
         clearedStates[index] = { isTested: false, isConfirmed: false };
@@ -357,7 +354,6 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
         clearedResults[index] = { 
           quizit: '', 
           reasoning: '', 
-          feedback: '', 
           permutation: null
         };
         clearedStates[index] = { isTested: false, isConfirmed: false };
@@ -404,7 +400,6 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
         clearedResults[index] = { 
           quizit: '', 
           reasoning: '', 
-          feedback: '', 
           permutation: null
         };
         clearedStates[index] = { isTested: false, isConfirmed: false };
@@ -436,6 +431,16 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     return text
       .split(/[\n,]+/)
       .map(word => word.trim());
+  };
+
+  // Parse theme injections text into array
+  const parseThemeInjections = (text) => {
+    if (!text || text.trim().length === 0) return [];
+    
+    // Split by newlines and commas, preserve empty strings for UI editing
+    return text
+      .split(/[\n,]+/)
+      .map(injection => injection.trim());
   };
 
 
@@ -472,6 +477,38 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     }
   };
 
+  // Handle adding new theme injection
+  const handleAddThemeInjection = () => {
+    try {
+      const currentInjections = parseThemeInjections(formData.theme_injections || '');
+      const newInjections = [...currentInjections, ''];
+      const newText = newInjections.join('\n');
+      handleInputChange('theme_injections', newText);
+      
+      // Focus the new injection's textarea after a brief delay
+      setTimeout(() => {
+        const newInjectionTextarea = document.querySelector(`textarea[data-theme-injection-id="${newInjections.length - 1}"]`);
+        if (newInjectionTextarea) {
+          newInjectionTextarea.focus();
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Error adding theme injection:', error);
+    }
+  };
+
+  // Handle deleting theme injection
+  const handleDeleteThemeInjection = (injectionIndex) => {
+    try {
+      const currentInjections = parseThemeInjections(formData.theme_injections || '');
+      const newInjections = currentInjections.filter((_, i) => i !== injectionIndex);
+      const newText = newInjections.join('\n');
+      handleInputChange('theme_injections', newText);
+    } catch (error) {
+      console.error('Error deleting theme injection:', error);
+    }
+  };
+
   // Clear all tests and selected permutations when dependencies change (component structure changes)
   useEffect(() => {
     if (formData?.quizit_component_structure) {
@@ -489,7 +526,6 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
           clearedResults[index] = { 
             quizit: '', 
             reasoning: '', 
-            feedback: '', 
             permutation: null
           };
           clearedStates[index] = { isTested: false, isConfirmed: false };
@@ -528,12 +564,12 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     if (!onTestsDraftChange) return;
     const slots = {};
     [0,1,2,3,4,5].forEach(i => {
-      const r = localResults[i] || { quizit: '', reasoning: '', feedback: '', permutation: null };
+      const r = localResults[i] || { quizit: '', reasoning: '', permutation: null };
       const s = localStates[i] || { isTested: false, isConfirmed: false };
       slots[i] = {
         quizit: r.quizit || '',
         reasoning: r.reasoning || '',
-        feedback: r.feedback || '',
+
         permutation: r.permutation || null,
         isTested: !!s.isTested,
         confirmed: !!s.isConfirmed
@@ -563,7 +599,7 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     // If drafts has a promptHash or any slot content, hydrate
     const hasAny = !!drafts.promptHash || [0,1,2,3,4,5].some(i => {
       const s = drafts.slots?.[i];
-      return s && (s.quizit || s.reasoning || s.feedback || s.isTested || s.confirmed);
+      return s && (s.quizit || s.reasoning || s.isTested || s.confirmed);
     });
     
     if (!hasAny) return;
@@ -578,12 +614,12 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
       5: { isTested: !!drafts.slots?.[5]?.isTested, isConfirmed: !!drafts.slots?.[5]?.confirmed },
     };
     const nextResults = {
-        0: { quizit: drafts.slots?.[0]?.quizit || '', reasoning: drafts.slots?.[0]?.reasoning || '', feedback: drafts.slots?.[0]?.feedback || '', permutation: drafts.slots?.[0]?.permutation || null },
-        1: { quizit: drafts.slots?.[1]?.quizit || '', reasoning: drafts.slots?.[1]?.reasoning || '', feedback: drafts.slots?.[1]?.feedback || '', permutation: drafts.slots?.[1]?.permutation || null },
-        2: { quizit: drafts.slots?.[2]?.quizit || '', reasoning: drafts.slots?.[2]?.reasoning || '', feedback: drafts.slots?.[2]?.feedback || '', permutation: drafts.slots?.[2]?.permutation || null },
-        3: { quizit: drafts.slots?.[3]?.quizit || '', reasoning: drafts.slots?.[3]?.reasoning || '', feedback: drafts.slots?.[3]?.feedback || '', permutation: drafts.slots?.[3]?.permutation || null },
-        4: { quizit: drafts.slots?.[4]?.quizit || '', reasoning: drafts.slots?.[4]?.reasoning || '', feedback: drafts.slots?.[4]?.feedback || '', permutation: drafts.slots?.[4]?.permutation || null },
-        5: { quizit: drafts.slots?.[5]?.quizit || '', reasoning: drafts.slots?.[5]?.reasoning || '', feedback: drafts.slots?.[5]?.feedback || '', permutation: drafts.slots?.[5]?.permutation || null },
+        0: { quizit: drafts.slots?.[0]?.quizit || '', reasoning: drafts.slots?.[0]?.reasoning || '', permutation: drafts.slots?.[0]?.permutation || null },
+        1: { quizit: drafts.slots?.[1]?.quizit || '', reasoning: drafts.slots?.[1]?.reasoning || '', permutation: drafts.slots?.[1]?.permutation || null },
+        2: { quizit: drafts.slots?.[2]?.quizit || '', reasoning: drafts.slots?.[2]?.reasoning || '', permutation: drafts.slots?.[2]?.permutation || null },
+        3: { quizit: drafts.slots?.[3]?.quizit || '', reasoning: drafts.slots?.[3]?.reasoning || '', permutation: drafts.slots?.[3]?.permutation || null },
+        4: { quizit: drafts.slots?.[4]?.quizit || '', reasoning: drafts.slots?.[4]?.reasoning || '', permutation: drafts.slots?.[4]?.permutation || null },
+        5: { quizit: drafts.slots?.[5]?.quizit || '', reasoning: drafts.slots?.[5]?.reasoning || '', permutation: drafts.slots?.[5]?.permutation || null },
       };
     
     setCurrentHash(drafts.promptHash || null);
@@ -698,7 +734,7 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
       // Store permutation with test results
       setQuizitResults(prev => ({
         ...prev,
-        [index]: { quizit, reasoning, feedback: prev[index]?.feedback || '', permutation }
+        [index]: { quizit, reasoning, permutation }
       }));
       setTestStates(prev => ({
         ...prev,
@@ -707,7 +743,7 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
       // Emit aggregated drafts upward for save-time persistence
       const localResults = {
         ...quizitResults,
-        [index]: { quizit, reasoning, feedback: quizitResults[index]?.feedback || '', permutation }
+        [index]: { quizit, reasoning, permutation }
       };
       const localStates = {
         ...testStates,
@@ -783,12 +819,12 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
           5: { isTested: false, isConfirmed: false }
         };
         const clearedResults = {
-          0: { quizit: '', reasoning: '', feedback: '' },
-          1: { quizit: '', reasoning: '', feedback: '' },
-          2: { quizit: '', reasoning: '', feedback: '' },
-          3: { quizit: '', reasoning: '', feedback: '' },
-          4: { quizit: '', reasoning: '', feedback: '' },
-          5: { quizit: '', reasoning: '', feedback: '' }
+          0: { quizit: '', reasoning: '' },
+          1: { quizit: '', reasoning: '' },
+          2: { quizit: '', reasoning: '' },
+          3: { quizit: '', reasoning: '' },
+          4: { quizit: '', reasoning: '' },
+          5: { quizit: '', reasoning: '' }
         };
         setTestStates(clearedStates);
         setQuizitResults(clearedResults);
@@ -885,6 +921,29 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     }
   }, [formData?.words_to_avoid]);
 
+  // Auto-resize theme injection textareas on initial load and content changes
+  useEffect(() => {
+    if (formData?.theme_injections) {
+      try {
+        const injections = parseThemeInjections(formData.theme_injections);
+        if (injections && Array.isArray(injections)) {
+          // Auto-resize all theme injection textareas after a brief delay to ensure DOM is ready
+          setTimeout(() => {
+            injections.forEach((injection, index) => {
+              const textarea = document.querySelector(`textarea[data-theme-injection-id="${index}"]`);
+              if (textarea) {
+                textarea.style.height = 'auto';
+                textarea.style.height = textarea.scrollHeight + 'px';
+              }
+            });
+          }, 100);
+        }
+      } catch (error) {
+        console.error('Error auto-resizing theme injection textareas:', error);
+      }
+    }
+  }, [formData?.theme_injections]);
+
   return (
     <div className="flex-1 p-6 overflow-y-auto">
       {/* Quizit Components Section */}
@@ -947,59 +1006,65 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
             })() && (
               <button
                 onClick={async () => {
-                  // Reset both new fields to saved values
+                  // Reset all fields to saved values (including card_idea)
                   handleInputChange('quizit_component_structure', savedPrompt?.quizit_component_structure || '');
                   handleInputChange('words_to_avoid', savedPrompt?.words_to_avoid || '');
+                  handleInputChange('card_idea', savedPrompt?.card_idea || '');
+
+                  // Restore selected permutations from saved data
+                  if (savedPrompt?.quizit_valid_permutations) {
+                    try {
+                      const savedPermutations = JSON.parse(savedPrompt.quizit_valid_permutations);
+                      setSelectedPermutations(new Set(savedPermutations));
+                    } catch (error) {
+                      console.error('Error parsing saved permutations:', error);
+                      setSelectedPermutations(new Set());
+                    }
+                  } else {
+                    setSelectedPermutations(new Set());
+                  }
+
+                  // Clear current test results first to avoid state conflicts
+                  const clearedStates = {
+                    0: { isTested: false, isConfirmed: false },
+                    1: { isTested: false, isConfirmed: false },
+                    2: { isTested: false, isConfirmed: false },
+                    3: { isTested: false, isConfirmed: false },
+                    4: { isTested: false, isConfirmed: false },
+                    5: { isTested: false, isConfirmed: false }
+                  };
+                  const clearedResults = {
+                    0: { quizit: '', reasoning: '', permutation: null },
+                    1: { quizit: '', reasoning: '', permutation: null },
+                    2: { quizit: '', reasoning: '', permutation: null },
+                    3: { quizit: '', reasoning: '', permutation: null },
+                    4: { quizit: '', reasoning: '', permutation: null },
+                    5: { quizit: '', reasoning: '', permutation: null }
+                  };
+                  
+                  setTestStates(clearedStates);
+                  setQuizitResults(clearedResults);
 
                   // Reload saved tests from DB for the saved prompt
                   try {
-                    // Generate hash from saved values
+                    // Generate hash from saved values using shared utility
                     const components = savedPrompt?.quizit_component_structure || '';
                     const wordsToAvoid = savedPrompt?.words_to_avoid || '';
-                    const combinedContent = `Components:\n${components}\n\nWords to Avoid:\n${wordsToAvoid}`;
-                    
-                    // Simple hash function for consistency with save logic
-                    const generateHash = (text) => {
-                      let hash = 5381;
-                      for (let i = 0; i < text.length; i += 1) {
-                        hash = ((hash << 5) + hash) + text.charCodeAt(i);
-                        hash |= 0; // force 32-bit
-                      }
-                      return (hash >>> 0).toString(16).padStart(8, '0');
-                    };
-                    
-                    const hash = generateHash(combinedContent);
+                    const cardIdea = savedPrompt?.card_idea || '';
+                    const hash = generateQuizitHashUtil(components, wordsToAvoid, cardIdea);
                     
                     // Fetch tests from database using the hash
                     const { data, error } = await supabase
                       .from('card_prompt_tests')
-                      .select('slot, quizit, reasoning, feedback, confirmed')
+                      .select('slot, quizit, reasoning, confirmed, permutation')
                       .eq('card_id', cardId)
                       .eq('prompt_hash', hash)
                       .order('slot', { ascending: true });
                     
                     if (error) {
                       console.error('Failed to load saved prompt tests on reset:', error);
-                      // Still set hash and clear states so user can retest
+                      // Still set hash and emit cleared state so user can retest
                       setCurrentHash(hash);
-                      const clearedStates = {
-                        0: { isTested: false, isConfirmed: false },
-                        1: { isTested: false, isConfirmed: false },
-                        2: { isTested: false, isConfirmed: false },
-                        3: { isTested: false, isConfirmed: false },
-                        4: { isTested: false, isConfirmed: false },
-                        5: { isTested: false, isConfirmed: false }
-                      };
-                      const clearedResults = {
-                        0: { quizit: '', reasoning: '', feedback: '' },
-                        1: { quizit: '', reasoning: '', feedback: '' },
-                        2: { quizit: '', reasoning: '', feedback: '' },
-                        3: { quizit: '', reasoning: '', feedback: '' },
-                        4: { quizit: '', reasoning: '', feedback: '' },
-                        5: { quizit: '', reasoning: '', feedback: '' }
-                      };
-                      setTestStates(clearedStates);
-                      setQuizitResults(clearedResults);
                       emitDraftChange(hash, clearedResults, clearedStates);
                       
                       // Notify parent component about test confirmation change
@@ -1017,12 +1082,12 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
                         5: { isTested: false, isConfirmed: false },
                       };
                       const nextResults = {
-                        0: { quizit: '', reasoning: '', feedback: '' },
-                        1: { quizit: '', reasoning: '', feedback: '' },
-                        2: { quizit: '', reasoning: '', feedback: '' },
-                        3: { quizit: '', reasoning: '', feedback: '' },
-                        4: { quizit: '', reasoning: '', feedback: '' },
-                        5: { quizit: '', reasoning: '', feedback: '' },
+                        0: { quizit: '', reasoning: '', permutation: null },
+                        1: { quizit: '', reasoning: '', permutation: null },
+                        2: { quizit: '', reasoning: '', permutation: null },
+                        3: { quizit: '', reasoning: '', permutation: null },
+                        4: { quizit: '', reasoning: '', permutation: null },
+                        5: { quizit: '', reasoning: '', permutation: null },
                       };
                       
                       // Populate with database data
@@ -1034,7 +1099,7 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
                         nextResults[row.slot] = {
                           quizit: row.quizit || '',
                           reasoning: row.reasoning || '',
-                          feedback: row.feedback || ''
+                          permutation: row.permutation || null
                         };
                       });
                       
@@ -1514,7 +1579,7 @@ Example:
         </div>
 
         {/* Words/Phrases/Expressions to Avoid Field */}
-        <div className="bg-white rounded-lg p-4">
+        <div className="bg-white rounded-lg p-4 mb-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-2">
               <label className="font-medium">Words/Phrases/Expressions to Avoid</label>
@@ -1628,6 +1693,121 @@ Example:
                 })()}
               </div>
             )}
+        </div>
+
+        {/* Theme Injections Field */}
+        <div className="bg-white rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-2">
+              <label className="font-medium">Theme Injections</label>
+            </div>
+            {formData?.theme_injections && formData.theme_injections.length > 0 && (
+              <button
+                onClick={() => {
+                  handleInputChange('theme_injections', '');
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
+                title="Reset theme injections"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          
+          {/* Paste Interface */}
+          {!formData?.theme_injections || formData.theme_injections.length === 0 ? (
+            <div 
+              onPaste={(e) => {
+                e.preventDefault();
+                const pastedText = e.clipboardData.getData('text');
+                handleInputChange('theme_injections', pastedText);
+              }}
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+                  e.preventDefault();
+                  navigator.clipboard.readText().then(text => {
+                    handleInputChange('theme_injections', text);
+                  });
+                }
+              }}
+              tabIndex={0}
+              className="w-full h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <div className="text-center">
+                <div className="text-gray-500 text-sm mb-1">Click to paste theme injections</div>
+                <div className="text-gray-400 text-xs">Press Ctrl+V (or Cmd+V) to paste</div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded">
+              {/* Display individual theme injections */}
+              {(() => {
+                try {
+                  const themeInjections = parseThemeInjections(formData.theme_injections);
+                  if (themeInjections && Array.isArray(themeInjections)) {
+                    return (
+                      <div className="space-y-2 mb-4">
+                        {themeInjections.map((injection, index) => (
+                          <div key={index} className="flex items-center space-x-3">
+                            <div className="flex-1 bg-white rounded border border-gray-200 p-3">
+                              <div className="text-sm text-gray-900 flex items-center">
+                                <textarea
+                                  value={injection}
+                                  onChange={(e) => {
+                                    const newInjections = [...themeInjections];
+                                    newInjections[index] = e.target.value;
+                                    const newText = newInjections.join('\n');
+                                    handleInputChange('theme_injections', newText);
+                                    
+                                    // Auto-resize textarea
+                                    e.target.style.height = 'auto';
+                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                  }}
+                                  className="w-full text-gray-900 bg-transparent border-none outline-none focus:ring-0 p-0 resize-none overflow-hidden"
+                                  placeholder="Enter theme injection..."
+                                  rows={1}
+                                  style={{ minHeight: '1.5rem' }}
+                                  data-theme-injection-id={index}
+                                />
+                              </div>
+                            </div>
+                            
+                            {/* Delete Button */}
+                            <button
+                              onClick={() => handleDeleteThemeInjection(index)}
+                              className="flex-shrink-0 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                              title="Delete theme injection"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                        
+                        {/* Add Theme Injection Button */}
+                        <div className="flex items-center space-x-3">
+                          <button
+                            onClick={handleAddThemeInjection}
+                            className="flex-1 p-3 border-1 border-dashed border-gray-300 rounded text-gray-500 hover:text-gray-700 hover:border-gray-400 hover:bg-gray-50 transition-colors flex items-center justify-center space-x-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            <span className="text-sm font-medium">Add Theme Injection</span>
+                          </button>
+                          <div className="flex-shrink-0 w-7"></div>
+                        </div>
+                      </div>
+                    );
+                  }
+                } catch (error) {
+                  console.error('Error parsing theme injections:', error);
+                }
+                return null;
+              })()}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1745,23 +1925,7 @@ Example:
             )}
           </div>
 
-          {/* Feedback Field */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h4 className="font-medium mb-2">Feedback</h4>
-            <textarea
-              value={quizitResults[currentTestIndex]?.feedback || ''}
-              onChange={(e) => {
-                const next = {
-                  ...quizitResults,
-                  [currentTestIndex]: { ...quizitResults[currentTestIndex], feedback: e.target.value || '' }
-                };
-                setQuizitResults(next);
-                emitDraftChange(currentHash, next, testStates);
-              }}
-              className="w-full p-3 border border-gray-200 rounded text-sm min-h-[80px] resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Provide feedback on this test result. This feedback will be used when generating a new prompt alongside the quizit and reasoning output..."
-            />
-          </div>
+
 
           {/* Action Buttons */}
           <div className="flex justify-center pt-4">
