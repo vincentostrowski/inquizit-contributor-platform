@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { generateValidOrderings } from '../../../utils/dependencyUtils';
 import { supabase } from '../../../services/supabaseClient';
 import { generateQuizitHash as generateQuizitHashUtil } from '../../../utils/hashUtils';
+import { useThemeInjections } from './quizit/hooks/useThemeInjections';
+import ThemeInjectionsLibrary from './quizit/components/ThemeInjectionsLibrary';
 
 const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftChange, savedPrompt, drafts, cardId, fieldCompletion = {}, onFieldCompletionToggle, onTestConfirmationChange, selectedPermutations, setSelectedPermutations }) => {
   const [currentTestIndex, setCurrentTestIndex] = useState(0);
@@ -13,7 +15,9 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     4: { isTested: false, isConfirmed: false },
     5: { isTested: false, isConfirmed: false }
   });
-  const [promptCopied, setPromptCopied] = useState(false);
+  const [quizitComponentsPromptCopied, setQuizitComponentsPromptCopied] = useState(false);
+  const [wordsPromptCopied, setWordsPromptCopied] = useState(false);
+  const [themeInjectionsPromptCopied, setThemeInjectionsPromptCopied] = useState(false);
   const [quizitResults, setQuizitResults] = useState({
     0: { quizit: '', reasoning: '' },
     1: { quizit: '', reasoning: '' },
@@ -26,6 +30,24 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
   const [currentHash, setCurrentHash] = useState(null);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [fieldsContentHash, setFieldsContentHash] = useState(null);
+
+  // Theme Injections Library state
+  const {
+    selectedTag,
+    expandedScenarios,
+    showTags,
+    tagSearchQuery,
+    availableTags,
+    filteredTags,
+    filteredScenarios,
+    setSelectedTag,
+    setTagSearchQuery,
+    setShowTags,
+    toggleScenario,
+    resetTagSearch,
+    resetTagSelection
+  } = useThemeInjections();
+
 
 
   const quizitRef = useRef(null);
@@ -509,6 +531,48 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     }
   };
 
+  // Handle copying theme injections prompt
+  const handleCopyThemeInjectionsPrompt = () => {
+    // Build predefined instructions + card JSON
+    const cardJson = {
+      card: {
+        title: formData?.title || '',
+        description: formData?.description || '',
+        card_idea: formData?.card_idea || ''
+      },
+      content: formData?.content || ''
+    };
+    
+    const instructions = `You are given a concept card and its explanation. Generate a collection of workplace scenario components that could be used to test understanding of this concept.
+
+Each scenario should be:
+- A concrete, realistic workplace situation
+- Relevant to the concept being tested
+- General enough to apply to various industries
+- Specific enough to be engaging and relatable
+
+For example, if testing for 'confirmation bias', scenarios could include:
+- A manager evaluating job candidates and focusing on information that confirms their initial impression
+- A team member researching solutions and only seeking sources that support their preferred approach
+- A project manager reviewing feedback and dismissing criticism that contradicts their plan
+
+Return your response as a simple list, one scenario per line:
+[scenario 1]
+[scenario 2]
+[scenario 3]
+...`;
+    
+    const payload = `${instructions}\n\n---\n\nCard JSON:\n${JSON.stringify(cardJson, null, 2)}`;
+    navigator.clipboard.writeText(payload);
+    setThemeInjectionsPromptCopied(true);
+    setTimeout(() => setThemeInjectionsPromptCopied(false), 2000);
+  };
+
+  // Handle resetting theme injections
+  const handleResetThemeInjections = () => {
+    handleInputChange('theme_injections', '');
+  };
+
   // Clear all tests and selected permutations when dependencies change (component structure changes)
   useEffect(() => {
     if (formData?.quizit_component_structure) {
@@ -944,6 +1008,19 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
     }
   }, [formData?.theme_injections]);
 
+  // Load mock theme injections data for testing (remove this in production)
+  useEffect(() => {
+    if (!formData?.theme_injections && !formData?.theme_injections?.trim()) {
+      const mockData = `A team member consistently arrives late to meetings
+A software bug is discovered in production
+A project deadline is approaching rapidly
+A client requests a major scope change
+A team member is underperforming
+A new technology needs to be implemented`;
+      handleInputChange('theme_injections', mockData);
+    }
+  }, []);
+
   return (
     <div className="flex-1 p-6 overflow-y-auto">
       {/* Quizit Components Section */}
@@ -1123,6 +1200,26 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
                 Reset to saved
               </button>
             )}
+
+          </div>
+        </div>
+        
+        {/* Quizit Components Field */}
+        <div className="bg-white rounded-lg p-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-2">
+              <label className="font-medium">Quizit Components</label>
+            </div>
+            {formData?.quizit_component_structure ? (
+              <button
+                onClick={() => {
+                  handleInputChange('quizit_component_structure', '');
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
+              >
+                Reset
+              </button>
+            ) : (
             <button
               onClick={() => {
                 // Build predefined instructions + card JSON
@@ -1135,10 +1232,7 @@ const QuizitTab = ({ formData, handleInputChange, handleGenerate, onTestsDraftCh
                   content: formData?.content || ''
                 };
                 
-                const instructions = `You are given a concept card and its explanation. Generate:
-
-1. A list of scenario components that would elicit this concept from a reader
-2. A list of words/phrases to avoid that would make the concept too obvious
+                  const instructions = `You are given a concept card and its explanation. Generate a structured quizit configuration with scenario components that would elicit this concept from a reader.
 
 Components should be phrased as concrete situations involving people, not abstract concepts. For example, instead of "Presence of a bold pursuit", use "Person A has a bold pursuit in area X".
 
@@ -1150,31 +1244,6 @@ For example, if testing for 'sunk cost fallacy', the components would be:
 - Person A faces a current decision point whether to continue or stop
 - Person A sees evidence that continuing is unlikely to be worthwhile
 - Person A feels compelled to continue "to not waste" what's already invested
-
-And words to avoid would be:
-- "sunk cost"
-- "wasted investment" 
-- "throwing good money after bad"
-- etc.
-
-Return your response in this format:
-
-Components:
-- [component 1]
-- [component 2]
-...
-
-Words to Avoid:
-- [term 1]
-- [term 2]
-...
-
-Now, using the components you just generated, create a structured quizit configuration. Analyze the components to determine:
-
-1. Which components are prerequisites (must come before others)
-2. Any dependency relationships between components
-3. Which components should be used for the quizit scenario (type: "scenario")
-4. Which components should be used only for reasoning (type: "reasoning")
 
 Return this structured configuration in the following JSON format:
 
@@ -1205,13 +1274,13 @@ Example:
                 
                 const payload = `${instructions}\n\n---\n\nCard JSON:\n${JSON.stringify(cardJson, null, 2)}`;
                 navigator.clipboard.writeText(payload);
-                setPromptCopied(true);
-                setTimeout(() => setPromptCopied(false), 2000);
+                 setQuizitComponentsPromptCopied(true);
+                 setTimeout(() => setQuizitComponentsPromptCopied(false), 2000);
               }}
               className="bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-xs flex items-center space-x-1 transition-colors"
               title="Copy prompt to clipboard"
             >
-              {promptCopied ? (
+               {quizitComponentsPromptCopied ? (
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
@@ -1222,24 +1291,6 @@ Example:
               )}
               <span>Prompt</span>
             </button>
-          </div>
-        </div>
-        
-        {/* Quizit Components Field */}
-        <div className="bg-white rounded-lg p-4 mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center space-x-2">
-              <label className="font-medium">Quizit Components</label>
-            </div>
-            {formData?.quizit_component_structure && (
-              <button
-                onClick={() => {
-                  handleInputChange('quizit_component_structure', '');
-                }}
-                className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
-              >
-                Reset
-              </button>
             )}
           </div>
           
@@ -1265,7 +1316,7 @@ Example:
               <div className="text-center">
                 <div className="text-gray-500 text-sm mb-1">Click to paste JSON configuration</div>
                 <div className="text-gray-400 text-xs">Press Ctrl+V (or Cmd+V) to paste</div>
-              </div>
+        </div>
             </div>
           ) : (
                           <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded">
@@ -1375,8 +1426,8 @@ Example:
                                           data-component-id={component.id}
                                         />
                                       </div>
-                                    </div>
-                                  </div>
+        </div>
+      </div>
                                   
                                                                      {/* Toggle Button */}
                                    <button
@@ -1584,7 +1635,7 @@ Example:
             <div className="flex items-center space-x-2">
               <label className="font-medium">Words/Phrases/Expressions to Avoid</label>
             </div>
-            {formData?.words_to_avoid && formData.words_to_avoid.length > 0 && (
+            {formData?.words_to_avoid && formData.words_to_avoid.length > 0 ? (
               <button
                 onClick={() => {
                   handleInputChange('words_to_avoid', '');
@@ -1594,6 +1645,63 @@ Example:
               >
                 Reset
               </button>
+            ) : (
+              <button
+                onClick={() => {
+                  // Build predefined instructions + card JSON
+                  const cardJson = {
+                    card: {
+                      title: formData?.title || '',
+                      description: formData?.description || '',
+                      card_idea: formData?.card_idea || ''
+                    },
+                    content: formData?.content || ''
+                  };
+                  
+                  const instructions = `You are given a concept card and its explanation. Generate a list of words, phrases, and expressions that should be avoided when testing for this concept.
+
+These are terms that would make the concept too obvious to the reader, defeating the purpose of the quizit.
+
+Focus on:
+- Direct synonyms of the concept
+- Technical jargon that immediately identifies the concept
+- Common phrases that are strongly associated with the concept
+- Academic or formal terms that give away the answer
+
+For example, if testing for 'sunk cost fallacy', words to avoid would be:
+- "sunk cost"
+- "wasted investment" 
+- "throwing good money after bad"
+- "escalation of commitment"
+- "irrational persistence"
+- "cost fallacy"
+- "investment trap"
+
+Return your response as a simple list, one term per line:
+[term 1]
+[term 2]
+[term 3]
+...`;
+                  
+                 const payload = `${instructions}\n\n---\n\nCard JSON:\n${JSON.stringify(cardJson, null, 2)}`;
+                 navigator.clipboard.writeText(payload);
+                 setWordsPromptCopied(true);
+                 setTimeout(() => setWordsPromptCopied(false), 2000);
+               }}
+               className="bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-xs flex items-center space-x-1 transition-colors"
+               title="Copy words prompt to clipboard"
+             >
+               {wordsPromptCopied ? (
+                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                 </svg>
+               ) : (
+                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                 </svg>
+               )}
+               <span>Prompt</span>
+             </button>
             )}
           </div>
           
@@ -1696,26 +1804,58 @@ Example:
         </div>
 
         {/* Theme Injections Field */}
-        <div className="bg-white rounded-lg p-4">
+        <div className="bg-white rounded-lg p-4 mb-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-2">
               <label className="font-medium">Theme Injections</label>
             </div>
-            {formData?.theme_injections && formData.theme_injections.length > 0 && (
+            {formData?.theme_injections && formData.theme_injections.trim() ? (
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => {
+                    // TODO: Implement view swaps functionality
+                    console.log('View Swaps clicked');
+                  }}
+                  className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
+                >
+                  View Swaps
+                </button>
+                <button
+                  onClick={() => setShowTags(!showTags)}
+                  className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
+                >
+                  {showTags ? 'Hide Filter' : 'Filter By Tags'}
+                </button>
+                <button
+                  onClick={handleResetThemeInjections}
+                  className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
+                  title="Reset theme injections"
+                >
+                  Reset
+                </button>
+              </div>
+            ) : (
               <button
-                onClick={() => {
-                  handleInputChange('theme_injections', '');
-                }}
-                className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
-                title="Reset theme injections"
+                onClick={handleCopyThemeInjectionsPrompt}
+                className="bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-xs flex items-center space-x-1 transition-colors"
+                title="Copy theme injections prompt to clipboard"
               >
-                Reset
+                {themeInjectionsPromptCopied ? (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                )}
+                <span>Prompt</span>
               </button>
             )}
           </div>
           
-          {/* Paste Interface */}
-          {!formData?.theme_injections || formData.theme_injections.length === 0 ? (
+          {/* Paste Interface - Only show when no data exists */}
+          {!formData?.theme_injections || !formData.theme_injections.trim() ? (
             <div 
               onPaste={(e) => {
                 e.preventDefault();
@@ -1739,77 +1879,36 @@ Example:
               </div>
             </div>
           ) : (
-            <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded">
-              {/* Display individual theme injections */}
-              {(() => {
-                try {
-                  const themeInjections = parseThemeInjections(formData.theme_injections);
-                  if (themeInjections && Array.isArray(themeInjections)) {
-                    return (
-                      <div className="space-y-2 mb-4">
-                        {themeInjections.map((injection, index) => (
-                          <div key={index} className="flex items-center space-x-3">
-                            <div className="flex-1 bg-white rounded border border-gray-200 p-3">
-                              <div className="text-sm text-gray-900 flex items-center">
-                                <textarea
-                                  value={injection}
-                                  onChange={(e) => {
-                                    const newInjections = [...themeInjections];
-                                    newInjections[index] = e.target.value;
-                                    const newText = newInjections.join('\n');
-                                    handleInputChange('theme_injections', newText);
-                                    
-                                    // Auto-resize textarea
-                                    e.target.style.height = 'auto';
-                                    e.target.style.height = e.target.scrollHeight + 'px';
-                                  }}
-                                  className="w-full text-gray-900 bg-transparent border-none outline-none focus:ring-0 p-0 resize-none overflow-hidden"
-                                  placeholder="Enter theme injection..."
-                                  rows={1}
-                                  style={{ minHeight: '1.5rem' }}
-                                  data-theme-injection-id={index}
-                                />
-                              </div>
-                            </div>
-                            
-                            {/* Delete Button */}
-                            <button
-                              onClick={() => handleDeleteThemeInjection(index)}
-                              className="flex-shrink-0 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-                              title="Delete theme injection"
-                            >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        ))}
-                        
-                        {/* Add Theme Injection Button */}
-                        <div className="flex items-center space-x-3">
-                          <button
-                            onClick={handleAddThemeInjection}
-                            className="flex-1 p-3 border-1 border-dashed border-gray-300 rounded text-gray-500 hover:text-gray-700 hover:border-gray-400 hover:bg-gray-50 transition-colors flex items-center justify-center space-x-2"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                            </svg>
-                            <span className="text-sm font-medium">Add Theme Injection</span>
-                          </button>
-                          <div className="flex-shrink-0 w-7"></div>
-                        </div>
-                      </div>
-                    );
-                  }
-                } catch (error) {
-                  console.error('Error parsing theme injections:', error);
-                }
-                return null;
-              })()}
+            /* Theme Injections Library - Only show when data exists */
+            <div className="mt-3">
+              <ThemeInjectionsLibrary
+                showTags={showTags}
+                selectedTag={selectedTag}
+                tagSearchQuery={tagSearchQuery}
+                availableTags={availableTags}
+                filteredTags={filteredTags}
+                filteredScenarios={filteredScenarios}
+                expandedScenarios={expandedScenarios}
+                onToggleTags={() => setShowTags(!showTags)}
+                onTagSelect={setSelectedTag}
+                onTagSearchChange={setTagSearchQuery}
+                onToggleScenario={toggleScenario}
+                onViewSwaps={() => {
+                  // TODO: Implement view swaps functionality
+                  console.log('View Swaps clicked');
+                }}
+                onReset={() => {
+                  handleInputChange('theme_injections', '');
+                }}
+                showHeader={false}
+                noBackground={true}
+              />
             </div>
           )}
         </div>
       </div>
+
+
 
       {/* Current Test Section */}
       <div className="bg-white rounded-lg p-6">
