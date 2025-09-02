@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../services/supabaseClient';
+import { generateValidOrderings } from '../../../utils/dependencyUtils';
 import CardTab from './CardTab';
 import ContentTab from './ContentTab';
 import QuizitTab from './QuizitTab';
@@ -57,6 +58,9 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   });
 
   const [tests, setTests] = useState(() => initializeTestsStructure());
+
+  // Store original loaded data for reset functionality
+  const [originalQuizitData, setOriginalQuizitData] = useState(null);
 
   // Flatten theme injections for database storage
   const flattenThemeInjections = (injections, parentId = null, level = 0, orderIndex = 0) => {
@@ -187,17 +191,26 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   };
 
   // Clear and map tests based on current dependencies
-  const clearAndMapTests = () => {
+  const clearAndMapTests = (permutationsToUse = selectedPermutations, themeInjectionsToUse = themeInjections) => {
     const clearedTests = initializeTestsStructure();
     
     // Map permutations to tests
-    if (selectedPermutations && selectedPermutations.length > 0) {
-      const permutationsArray = Array.from(selectedPermutations);
+    if (permutationsToUse && permutationsToUse.length > 0) {
+      // Get the valid orderings to determine the display order
+      const scenarioComponents = componentStructure?.components?.filter(comp => comp.type === 'scenario') || [];
+      const { validOrderings } = generateValidOrderings(scenarioComponents, 10);
+      
+      // Sort selected permutations by their position in the validOrderings array
+      const sortedPermutations = permutationsToUse.sort((a, b) => {
+        const indexA = validOrderings.indexOf(a);
+        const indexB = validOrderings.indexOf(b);
+        return indexA - indexB;
+      });
       
       // Distribute permutations evenly across all 6 tests
-      const testsPerPermutation = 6 / permutationsArray.length;
+      const testsPerPermutation = 6 / sortedPermutations.length;
       
-      permutationsArray.forEach((permutation, permIndex) => {
+      sortedPermutations.forEach((permutation, permIndex) => {
         const startTestIndex = Math.floor(permIndex * testsPerPermutation);
         const endTestIndex = Math.floor((permIndex + 1) * testsPerPermutation);
         
@@ -216,8 +229,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     }
     
     // Map theme injections to tests
-    if (themeInjections && themeInjections.theme_injections && themeInjections.theme_injections.length > 0) {
-      const rootScenarios = themeInjections.theme_injections;
+    if (themeInjectionsToUse && themeInjectionsToUse.theme_injections && themeInjectionsToUse.theme_injections.length > 0) {
+      const rootScenarios = themeInjectionsToUse.theme_injections;
       let testIndex = 0;
       let childIndex = 0;
       
@@ -260,6 +273,42 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     }
     
     setTests(clearedTests);
+  };
+
+  // Wrapper function that sets selected permutations and clears tests
+  const handleSelectedPermutationsChange = (newPermutations) => {
+    setSelectedPermutations(newPermutations);
+    clearAndMapTests(newPermutations); // Pass the new permutations directly
+  };
+
+  // Wrapper function that sets theme injections and clears tests
+  const handleThemeInjectionsChange = (newThemeInjections) => {
+    setThemeInjections(newThemeInjections);
+    clearAndMapTests(selectedPermutations, newThemeInjections); // Pass both parameters directly
+  };
+
+  // Wrapper function that sets words to avoid and clears tests
+  const handleWordsToAvoidChange = (newWordsToAvoid) => {
+    setWordsToAvoid(newWordsToAvoid);
+    clearAndMapTests(); // Use current selectedPermutations state
+  };
+
+  // Wrapper function that sets component structure and clears permutations + tests
+  const handleComponentStructureChange = (newComponentStructure) => {
+    setComponentStructure(newComponentStructure);
+    setSelectedPermutations([]); // Clear selected permutations when components change
+    clearAndMapTests([], themeInjections); // Clear tests with empty permutations
+  };
+
+  // Reset quizit data to original loaded state
+  const handleResetQuizitData = () => {
+    if (originalQuizitData) {
+      setComponentStructure(originalQuizitData.componentStructure);
+      setSelectedPermutations(originalQuizitData.selectedPermutations);
+      setWordsToAvoid(originalQuizitData.wordsToAvoid);
+      setThemeInjections(originalQuizitData.themeInjections);
+      setTests(originalQuizitData.tests);
+    }
   };
 
   // Data loading function
@@ -305,13 +354,15 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         };
       });
       
-      return {
+      const loadedData = {
         wordsToAvoid: card.words_to_avoid ? card.words_to_avoid.split(',').map(w => w.trim()) : [],
         componentStructure: card.quizit_component_structure || { components: [] },
         selectedPermutations: card.quizit_valid_permutations || [],
         tests: testsObject,
         themeInjections: themeInjections.length > 0 ? buildNestedThemeInjections(themeInjections) : { theme_injections: [] }
       };
+      
+      return loadedData;
     } catch (error) {
       console.error('Error loading quizit data:', error);
       return null;
@@ -323,6 +374,9 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     if (card?.id) {
       loadAllQuizitData(card.id).then(data => {
         if (data) {
+          // Store original data for reset functionality
+          setOriginalQuizitData(data);
+          
           // Set all states at once to prevent cascading effects
           setComponentStructure(data.componentStructure);
           setSelectedPermutations(data.selectedPermutations);
@@ -333,7 +387,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       });
     }
   }, [card?.id]);
-
+  
   // Completion tracking state - persists across tab changes
   const [fieldCompletion, setFieldCompletion] = useState({
     title: false,
@@ -988,16 +1042,18 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
               fieldCompletion={fieldCompletion}
               onFieldCompletionToggle={handleFieldCompletionToggle}
               selectedPermutations={selectedPermutations}
-              setSelectedPermutations={setSelectedPermutations}
+              setSelectedPermutations={handleSelectedPermutationsChange}
               componentStructure={componentStructure}
-              setComponentStructure={setComponentStructure}
+              setComponentStructure={handleComponentStructureChange}
               wordsToAvoid={wordsToAvoid}
-              setWordsToAvoid={setWordsToAvoid}
+              setWordsToAvoid={handleWordsToAvoidChange}
               themeInjections={themeInjections}
-              setThemeInjections={setThemeInjections}
+              setThemeInjections={handleThemeInjectionsChange}
               tests={tests}
               setTests={setTests}
               clearAndMapTests={clearAndMapTests}
+              onResetQuizitData={handleResetQuizitData}
+              hasOriginalData={!!originalQuizitData}
             />
           )}
           {activeTab === 'related' && (

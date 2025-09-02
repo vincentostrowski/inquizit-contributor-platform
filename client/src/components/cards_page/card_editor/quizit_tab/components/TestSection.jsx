@@ -1,5 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../../../services/supabaseClient';
+import { generateValidOrderings } from '../../../../../utils/dependencyUtils';
+
+// Color mapping for permutations
+const getPermutationColor = (permutation, allPermutations) => {
+  const colors = [
+    'text-blue-600',
+    'text-green-600', 
+    'text-purple-600',
+    'text-orange-600',
+    'text-pink-600',
+    'text-indigo-600',
+    'text-yellow-600',
+    'text-red-600',
+    'text-teal-600',
+    'text-cyan-600'
+  ];
+  
+  // Sort permutations to get consistent order
+  const sortedPermutations = [...allPermutations].sort();
+  const index = sortedPermutations.indexOf(permutation);
+  
+  return colors[index % colors.length] || 'text-gray-600';
+};
 
 // Auto-resize textarea hook
 const useAutoResize = (value) => {
@@ -185,6 +208,10 @@ const TestSection = (
           const isGenerated = test?.quizit && test?.reasoning;
           const isSelected = selectedTestIndex === index;
 
+          // Get all valid permutations for color mapping
+          const scenarioComponents = componentStructure?.components?.filter(comp => comp.type === 'scenario') || [];
+          const { validOrderings } = generateValidOrderings(scenarioComponents, 10);
+
       return (
         <button
           key={index}
@@ -210,7 +237,7 @@ const TestSection = (
         >
           <span className="font-bold">Test {index + 1}</span>
               {test.permutation && (
-            <span className={`text-[10px] font-mono leading-tight`}>
+            <span className={`text-[10px] font-mono leading-tight ${getPermutationColor(test.permutation, validOrderings)}`}>
                   {test.permutation}
             </span>
           )}

@@ -4,7 +4,7 @@ import WordsToAvoidSection from './quizit_tab/components/WordsToAvoidSection';
 import QuizitComponentsSection from './quizit_tab/components/QuizitComponentsSection';
 import TestSection from './quizit_tab/components/TestSection';
 
-const QuizitTab = ({ formData, fieldCompletion, onFieldCompletionToggle, selectedPermutations, setSelectedPermutations, componentStructure, setComponentStructure, wordsToAvoid, setWordsToAvoid, themeInjections, setThemeInjections, tests, setTests, clearAndMapTests }) => {
+const QuizitTab = ({ formData, fieldCompletion, onFieldCompletionToggle, selectedPermutations, setSelectedPermutations, componentStructure, setComponentStructure, wordsToAvoid, setWordsToAvoid, themeInjections, setThemeInjections, tests, setTests, clearAndMapTests, onResetQuizitData, hasOriginalData }) => {
 
   return (
     <div className="flex-1 p-6 overflow-y-auto">
@@ -14,6 +14,8 @@ const QuizitTab = ({ formData, fieldCompletion, onFieldCompletionToggle, selecte
           fieldCompletion={fieldCompletion}
           onFieldCompletionToggle={onFieldCompletionToggle}
           tests={tests}
+          onResetQuizitData={onResetQuizitData}
+          hasOriginalData={hasOriginalData}
         />
         
         {/* Quizit Components Field */}
@@ -52,7 +54,6 @@ const QuizitTab = ({ formData, fieldCompletion, onFieldCompletionToggle, selecte
         setTests={setTests}
         clearAndMapTests={clearAndMapTests}
       />
-
     </div>
   );
 };

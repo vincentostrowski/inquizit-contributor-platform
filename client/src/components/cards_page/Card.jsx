@@ -168,7 +168,7 @@ const Card = ({ card, onClick, index, onDragStart, onDragEnd, showRemoveButton, 
               }}
             />
             {/* Completion check circle below card */}
-            {showCompletionBadge && (
+            {showCompletionBadge && !snapshot.isDragging && (
               <div className="h-10 flex items-center justify-center">
                 {completionData?.is_completed && (
                   <div className="w-4 h-4 bg-green-100 rounded-full flex items-center justify-center">
