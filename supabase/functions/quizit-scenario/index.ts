@@ -17,7 +17,7 @@ serve(async (req) => {
   }
 
   try {
-    const { scenarioComponents, wordsToAvoid } = await req.json()
+    const { scenarioComponents, wordsToAvoid, themeInjection } = await req.json()
     if (!scenarioComponents || typeof scenarioComponents !== 'string') {
       return new Response(
         JSON.stringify({ error: 'Missing scenarioComponents' }),
@@ -46,6 +46,9 @@ Rules:
 
 items_in_order: ${scenarioComponents}
 banned_phrases: ${wordsToAvoid}
+${themeInjection ? `theme_injection: ${themeInjection}
+
+The scenario should revolve around this theme injection and implement concrete details beyond it. Use the theme injection as the core context and build the scenario around it.` : ''}
 
 Return the scenario text directly.`
 

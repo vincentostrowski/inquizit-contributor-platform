@@ -4,31 +4,20 @@ import CardTab from './CardTab';
 import ContentTab from './ContentTab';
 import QuizitTab from './QuizitTab';
 import RelatedTab from './RelatedTab';
-import ImageReferenceSelector from './ImageReferenceSelector';
-import { generateQuizitHash } from '../../../utils/hashUtils';
 
-// Field completion toggle component
-const FieldCompletionToggle = ({ field, isCompleted, onToggle, label }) => (
-  <div className="flex items-center space-x-2 mb-2">
-    <button
-      onClick={() => onToggle(field, !isCompleted)}
-      className={`w-4 h-4 rounded border-2 transition-colors ${
-        isCompleted 
-          ? 'bg-green-500 border-green-500' 
-          : 'bg-white border-gray-300 hover:border-gray-400'
-      }`}
-    >
-      {isCompleted && (
-        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-        </svg>
-      )}
-    </button>
-    <span className="text-sm text-gray-600">
-      Mark {label} as complete
-    </span>
-  </div>
-);
+const initializeTestsStructure = () => {
+  const tests = {};
+  [0, 1, 2, 3, 4, 5].forEach(index => {
+    tests[index] = { 
+      quizit: '', 
+      reasoning: '', 
+      permutation: null, 
+      themeInjection: null, 
+      confirmed: false
+    };
+  });
+  return tests;
+};
 
 const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSection, completionData, onCompletionUpdate }) => {
   const [activeTab, setActiveTab] = useState('card'); // 'card', 'content', 'quizit'
@@ -37,10 +26,6 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     description: '',
     card_idea: '',
     prompt: '',
-    quizit_component_structure: '',
-    quizit_valid_permutations: '',
-    words_to_avoid: '',
-    theme_injections: '',
     content: '',
     order: '',
     banner: '',
@@ -57,10 +42,298 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   const [jsonCopied, setJsonCopied] = useState(false);
   const [jsonError, setJsonError] = useState(null);
   const [saveStatus, setSaveStatus] = useState('idle'); // 'idle', 'saving', 'success', 'error'
-  
   // Selected permutations state - persists across tab switches
-  const [selectedPermutations, setSelectedPermutations] = useState(new Set());
+  const [selectedPermutations, setSelectedPermutations] = useState([]);
   
+  // Quizit component structure state - persists across tab switches
+  const [componentStructure, setComponentStructure] = useState({
+    components: []
+  });
+
+  const [wordsToAvoid, setWordsToAvoid] = useState([]);
+
+  const [themeInjections, setThemeInjections] = useState({
+    theme_injections: []
+  });
+
+  const [tests, setTests] = useState(() => initializeTestsStructure());
+
+  // Flatten theme injections for database storage
+  const flattenThemeInjections = (injections, parentId = null, level = 0, orderIndex = 0) => {
+    const flattened = [];
+    
+    injections.forEach((injection, index) => {
+      const currentOrderIndex = orderIndex + index;
+      
+      flattened.push({
+        injection_id: injection.id.toString(),
+        text: injection.text,
+        tags: injection.tags,
+        parent_id: parentId,
+        level: level,
+        order_index: currentOrderIndex
+      });
+      
+      if (injection.children && injection.children.length > 0) {
+        const children = flattenThemeInjections(injection.children, injection.id.toString(), level + 1, currentOrderIndex);
+        flattened.push(...children);
+      }
+    });
+    
+    return flattened;
+  };
+
+  // Save theme injections to database
+  const saveThemeInjections = async (cardId, themeInjectionsData) => {
+    try {
+      // First, delete existing theme injections for this card
+      await supabase.from('theme_injections').delete().eq('card_id', cardId);
+      
+      // Then insert new ones
+      const flattenedInjections = flattenThemeInjections(themeInjectionsData.theme_injections);
+      
+      if (flattenedInjections.length > 0) {
+        const insertPromises = flattenedInjections.map(injection => 
+          supabase.from('theme_injections').insert({
+            card_id: cardId,
+            injection_id: injection.injection_id,
+            text: injection.text,
+            tags: injection.tags,
+            parent_id: injection.parent_id,
+            level: injection.level,
+            order_index: injection.order_index
+          })
+        );
+        
+        await Promise.all(insertPromises);
+        console.log('Theme injections saved successfully');
+      }
+    } catch (error) {
+      console.error('Error saving theme injections:', error);
+      throw error;
+    }
+  };
+
+  // Data saving function
+  const saveQuizitData = async (cardId) => {
+    try {
+      // 1. Save card-level data
+      await supabase.from('cards').update({
+        words_to_avoid: wordsToAvoid.join(', '),
+        quizit_component_structure: componentStructure,
+        quizit_valid_permutations: selectedPermutations
+      }).eq('id', cardId);
+
+      // 2. Save theme injections
+      if (themeInjections && themeInjections.theme_injections && themeInjections.theme_injections.length > 0) {
+        await saveThemeInjections(cardId, themeInjections);
+      }
+
+      // 3. Save test data (delete + insert approach)
+      try {
+        // First, delete existing tests for this card
+        await supabase.from('card_prompt_tests').delete().eq('card_id', cardId);
+        
+        // Then insert new tests
+        const testPromises = [0, 1, 2, 3, 4, 5].map(slot => {
+          const test = tests[slot];
+          return supabase.from('card_prompt_tests').insert({
+            card_id: cardId,
+            slot: slot,
+            quizit: test.quizit || '',
+            reasoning: test.reasoning || '',
+            permutation: test.permutation || null,
+            theme_injection: test.themeInjection?.text || null,
+            confirmed: test.confirmed || false
+          });
+        });
+
+        await Promise.all(testPromises);
+        console.log('Test data saved successfully');
+      } catch (testError) {
+        console.error('Error saving test data:', testError);
+        // Continue with other saves even if tests fail
+      }
+      console.log('Quizit data saved successfully');
+    } catch (error) {
+      console.error('Error saving quizit data:', error);
+      throw error;
+    }
+  };
+
+  // Build nested theme injections from flat database structure
+  const buildNestedThemeInjections = (flatInjections) => {
+    const rootInjections = flatInjections.filter(inj => inj.level === 0);
+    
+    const buildChildren = (parentId) => {
+      return flatInjections
+        .filter(inj => inj.parent_id === parentId)
+        .map(inj => ({
+          id: inj.injection_id,
+          text: inj.text,
+          tags: inj.tags,
+          children: buildChildren(inj.injection_id)
+        }));
+    };
+    
+    return {
+      theme_injections: rootInjections.map(inj => ({
+        id: parseInt(inj.injection_id),
+        text: inj.text,
+        tags: inj.tags,
+        children: buildChildren(inj.injection_id)
+      }))
+    };
+  };
+
+  // Clear and map tests based on current dependencies
+  const clearAndMapTests = () => {
+    const clearedTests = initializeTestsStructure();
+    
+    // Map permutations to tests
+    if (selectedPermutations && selectedPermutations.length > 0) {
+      const permutationsArray = Array.from(selectedPermutations);
+      
+      // Distribute permutations evenly across all 6 tests
+      const testsPerPermutation = 6 / permutationsArray.length;
+      
+      permutationsArray.forEach((permutation, permIndex) => {
+        const startTestIndex = Math.floor(permIndex * testsPerPermutation);
+        const endTestIndex = Math.floor((permIndex + 1) * testsPerPermutation);
+        
+        // Assign this permutation to its range of tests
+        for (let testIndex = startTestIndex; testIndex < endTestIndex; testIndex++) {
+          if (testIndex < 6) { // Safety check
+            clearedTests[testIndex].permutation = permutation;
+          }
+        }
+      });
+    } else {
+      // Clear all permutations when none are selected
+      [0, 1, 2, 3, 4, 5].forEach(index => {
+        clearedTests[index].permutation = null;
+      });
+    }
+    
+    // Map theme injections to tests
+    if (themeInjections && themeInjections.theme_injections && themeInjections.theme_injections.length > 0) {
+      const rootScenarios = themeInjections.theme_injections;
+      let testIndex = 0;
+      let childIndex = 0;
+      
+      while (testIndex < 6) {
+        let foundChild = false;
+        
+        for (let rootIndex = 0; rootIndex < rootScenarios.length; rootIndex++) {
+          const root = rootScenarios[rootIndex];
+          
+          if (root.children && root.children.length > childIndex) {
+            const child = root.children[childIndex];
+            clearedTests[testIndex].themeInjection = child;
+            testIndex++;
+            foundChild = true;
+            
+            if (testIndex >= 6) break;
+          }
+        }
+        
+        if (!foundChild) {
+          childIndex++;
+          
+          let hasMoreChildren = false;
+          for (let rootIndex = 0; rootIndex < rootScenarios.length; rootIndex++) {
+            const root = rootScenarios[rootIndex];
+            if (root.children && root.children.length > childIndex) {
+              hasMoreChildren = true;
+              break;
+            }
+          }
+          
+          if (!hasMoreChildren) break;
+        }
+      }
+    } else {
+      // Clear all theme injections when none are available
+      [0, 1, 2, 3, 4, 5].forEach(index => {
+        clearedTests[index].themeInjection = null;
+      });
+    }
+    
+    setTests(clearedTests);
+  };
+
+  // Data loading function
+  const loadAllQuizitData = async (cardId) => {
+    try {
+      // Fetch card data, tests, and theme injections in parallel
+      const [cardData, testsData, themeInjectionsData] = await Promise.all([
+        supabase.from('cards').select('words_to_avoid, quizit_component_structure, quizit_valid_permutations').eq('id', cardId).single(),
+        supabase.from('card_prompt_tests').select('*').eq('card_id', cardId).order('slot'),
+        supabase.from('theme_injections').select('*').eq('card_id', cardId).order('level, order_index')
+      ]);
+
+      if (cardData.error) {
+        console.error('Error loading card data:', cardData.error);
+        return null;
+      }
+
+      if (testsData.error) {
+        console.error('Error loading tests data:', testsData.error);
+        return null;
+      }
+
+      if (themeInjectionsData.error) {
+        console.error('Error loading theme injections data:', themeInjectionsData.error);
+        return null;
+      }
+
+      // Transform the data
+      const card = cardData.data;
+      const tests = testsData.data || [];
+      const themeInjections = themeInjectionsData.data || [];
+
+      // Convert tests array to object format
+      const testsObject = {};
+      [0, 1, 2, 3, 4, 5].forEach(slot => {
+        const testData = tests.find(t => t.slot === slot);
+        testsObject[slot] = {
+          quizit: testData?.quizit || '',
+          reasoning: testData?.reasoning || '',
+          permutation: testData?.permutation || null,
+          themeInjection: testData?.theme_injection ? { text: testData.theme_injection } : null,
+          confirmed: testData?.confirmed || false
+        };
+      });
+      
+      return {
+        wordsToAvoid: card.words_to_avoid ? card.words_to_avoid.split(',').map(w => w.trim()) : [],
+        componentStructure: card.quizit_component_structure || { components: [] },
+        selectedPermutations: card.quizit_valid_permutations || [],
+        tests: testsObject,
+        themeInjections: themeInjections.length > 0 ? buildNestedThemeInjections(themeInjections) : { theme_injections: [] }
+      };
+    } catch (error) {
+      console.error('Error loading quizit data:', error);
+      return null;
+    }
+  };
+
+  // Load quizit data when card changes
+  useEffect(() => {
+    if (card?.id) {
+      loadAllQuizitData(card.id).then(data => {
+        if (data) {
+          // Set all states at once to prevent cascading effects
+          setComponentStructure(data.componentStructure);
+          setSelectedPermutations(data.selectedPermutations);
+          setWordsToAvoid(data.wordsToAvoid);
+          setThemeInjections(data.themeInjections);
+          setTests(data.tests);
+        }
+      });
+    }
+  }, [card?.id]);
+
   // Completion tracking state - persists across tab changes
   const [fieldCompletion, setFieldCompletion] = useState({
     title: false,
@@ -100,28 +373,11 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         description: card.description || '',
         card_idea: card.card_idea || '',
         prompt: card.prompt || '',
-        quizit_component_structure: card.quizit_component_structure || '',
-        quizit_valid_permutations: card.quizit_valid_permutations || '',
-        words_to_avoid: card.words_to_avoid || '',
-        theme_injections: card.theme_injections || '',
         content: card.content || '',
         order: card.order || '',
         banner: card.banner || '',
         bannerFile: null // Reset file when loading existing card
       });
-      
-      // Load selected permutations from saved data
-      if (card.quizit_valid_permutations) {
-        try {
-          const savedPermutations = JSON.parse(card.quizit_valid_permutations);
-          setSelectedPermutations(new Set(savedPermutations));
-        } catch (error) {
-          console.error('Error parsing saved permutations:', error);
-          setSelectedPermutations(new Set());
-        }
-      } else {
-        setSelectedPermutations(new Set());
-      }
       
       // Set the conversation link from card (either from existing card or from new card with section default)
       setConversationLink(card.conversationLink || '');
@@ -133,56 +389,6 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
 
       // Immediately clear drafts to prevent stale display while loading
       setPendingPromptTests(null);
-
-      // Load persisted quizit tests for the saved quizit fields (if existing card)
-      (async () => {
-        try {
-          if (!card.id || (!card.quizit_component_structure && !card.words_to_avoid)) {
-            setPendingPromptTests(null);
-            return;
-          }
-          
-          // Generate hash from the new quizit fields (same logic as save)
-          const components = card.quizit_component_structure || '';
-          const wordsToAvoid = card.words_to_avoid || '';
-          const cardIdea = card.card_idea || '';
-          const promptHash = generateQuizitHash(components, wordsToAvoid, cardIdea);
-          const { data, error } = await supabase
-            .from('card_prompt_tests')
-            .select('slot, quizit, reasoning, confirmed, permutation')
-            .eq('card_id', card.id)
-            .eq('prompt_hash', promptHash)
-            .order('slot', { ascending: true });
-
-          if (error) {
-            console.error('Failed to load prompt tests:', error);
-            setPendingPromptTests(null);
-            return;
-          }
-
-          const slots = { 0:{},1:{},2:{},3:{},4:{},5:{} };
-          (data || []).forEach(row => {
-            slots[row.slot] = {
-              quizit: row.quizit || '',
-              reasoning: row.reasoning || '',
-              isTested: !!(row.quizit || row.reasoning),
-              confirmed: !!row.confirmed,
-              permutation: row.permutation || null
-            };
-          });
-          setPendingPromptTests({ promptHash, slots });
-        } catch (e) {
-          console.error('Unexpected error loading prompt tests:', e);
-          setPendingPromptTests(null);
-        }
-      })();
-
-      // Load completion tracking for the card
-      if (card.id) {
-        // Completion tracking is now handled by the completionData prop
-      } else {
-        // For new cards, completion tracking will be initialized by the prop effect
-      }
     }
   }, [card]);
 
@@ -192,48 +398,6 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       ...prev,
       [fieldName]: isCompleted
     }));
-  };
-
-  // Check if all fields are completed
-  const areAllFieldsCompleted = () => {
-    // For quizit_configuration, check if both quizit fields have content AND all 6 tests are completed/confirmed
-    const quizitFieldsComplete = formData.quizit_component_structure && formData.words_to_avoid;
-    
-    // Check if all 6 tests are completed and confirmed (if we have pendingPromptTests)
-    const allTestsCompleted = pendingPromptTests?.slots && 
-      [0, 1, 2, 3, 4, 5].every(index => 
-        pendingPromptTests.slots[index]?.isTested && pendingPromptTests.slots[index]?.confirmed
-      );
-    
-    const quizitCompleted = quizitFieldsComplete && allTestsCompleted;
-    
-    const adjustedCompletion = {
-      ...fieldCompletion,
-      quizit_configuration: quizitCompleted
-    };
-    return Object.values(adjustedCompletion).every(completed => completed);
-  };
-
-  // Get completion percentage
-  const getCompletionPercentage = () => {
-    const totalFields = Object.keys(fieldCompletion).length;
-    // For quizit_configuration, check if both quizit fields have content AND all 6 tests are completed/confirmed
-    const quizitFieldsComplete = formData.quizit_component_structure && formData.words_to_avoid;
-    
-    // Check if all 6 tests are completed and confirmed (if we have pendingPromptTests)
-    const allTestsCompleted = pendingPromptTests?.slots && 
-      [0, 1, 2, 3, 4, 5].every(index => 
-        pendingPromptTests.slots[index]?.isTested && pendingPromptTests.slots[index]?.confirmed
-      );
-    
-    const quizitCompleted = quizitFieldsComplete && allTestsCompleted;
-    
-    const adjustedCompletion = {
-      ...fieldCompletion,
-      quizit_configuration: quizitCompleted
-    };
-    const completedFields = Object.values(adjustedCompletion).filter(completed => completed).length;
-    return (completedFields / totalFields) * 100;
   };
 
   // Save completion tracking to database
@@ -296,6 +460,12 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         banner: false,
         quizit_configuration: false
       });
+      // Reset quizit-related states to empty
+      setSelectedPermutations([]);
+      setComponentStructure({ components: [] });
+      setWordsToAvoid([]);
+      setThemeInjections({ theme_injections: [] });
+      setTests(initializeTestsStructure());
     }
   }, [isOpen]);
 
@@ -321,28 +491,6 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         quizit_configuration: false
       }));
     }
-  };
-
-  // Handle test confirmation changes (called from QuizitTab)
-  const handleTestConfirmationChange = () => {
-    // Auto-uncheck quizit configuration if it was marked complete but tests are no longer all confirmed
-    if (fieldCompletion.quizit_configuration) {
-      const allTestsCompleted = pendingPromptTests?.slots && 
-        [0, 1, 2, 3, 4].every(index => 
-          pendingPromptTests.slots[index]?.isTested && pendingPromptTests.slots[index]?.confirmed
-        );
-      
-      if (!allTestsCompleted) {
-        setFieldCompletion(prev => ({
-          ...prev,
-          quizit_configuration: false
-        }));
-      }
-    }
-  };
-
-  const handleGenerate = (field) => {
-    // Placeholder for future AI generation
   };
 
   const handleLinkClick = (link) => {
@@ -482,20 +630,6 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     return prompt;
   };
 
-  const copyPromptToClipboard = async (prompt, promptType) => {
-    try {
-      await navigator.clipboard.writeText(prompt);
-      // prompt copied
-      
-      // Reset the copied state after 2 seconds
-      setTimeout(() => {
-        // setCopiedPrompt(null); // This line was removed as per the edit hint
-      }, 2000);
-    } catch (error) {
-      console.error('Failed to copy prompt:', error);
-    }
-  };
-
   // Build JSON from current formData (fields only)
   const buildCardJson = () => {
     const exportObj = {
@@ -535,7 +669,6 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     }
   };
 
-
   const handleSave = async () => {
     setSaveStatus('saving');
     try {
@@ -548,8 +681,12 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       // Save completion tracking after card is saved
       if (savedCard?.card?.id) {
         await saveCompletionTracking(savedCard.card.id);
+        // Save quizit data
+        await saveQuizitData(savedCard.card.id);
       } else if (savedCard?.id) {
         await saveCompletionTracking(savedCard.id);
+        // Save quizit data
+        await saveQuizitData(savedCard.id);
       } else {
         // console.log('No savedCard.id found, skipping completion tracking save');
       }
@@ -829,7 +966,6 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
             <CardTab 
               formData={formData}
               handleInputChange={handleInputChange}
-              handleGenerate={handleGenerate}
               buildTitlePrompt={buildTitlePrompt}
               buildDescriptionPrompt={buildDescriptionPrompt}
               buildBannerPrompt={buildBannerPrompt}
@@ -841,7 +977,6 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
             <ContentTab 
               formData={formData}
               handleInputChange={handleInputChange}
-              handleGenerate={handleGenerate}
               buildContentPrompt={buildContentPrompt}
               fieldCompletion={fieldCompletion}
               onFieldCompletionToggle={handleFieldCompletionToggle}
@@ -850,22 +985,19 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
           {activeTab === 'quizit' && (
             <QuizitTab 
               formData={formData}
-              handleInputChange={handleInputChange}
-              handleGenerate={handleGenerate}
-              savedPrompt={{
-                quizit_component_structure: card?.quizit_component_structure || '',
-                words_to_avoid: card?.words_to_avoid || '',
-                card_idea: card?.card_idea || '',
-                quizit_valid_permutations: card?.quizit_valid_permutations || ''
-              }}
-              cardId={card?.id}
-              drafts={pendingPromptTests}
-              onTestsDraftChange={setPendingPromptTests}
               fieldCompletion={fieldCompletion}
               onFieldCompletionToggle={handleFieldCompletionToggle}
-              onTestConfirmationChange={handleTestConfirmationChange}
               selectedPermutations={selectedPermutations}
               setSelectedPermutations={setSelectedPermutations}
+              componentStructure={componentStructure}
+              setComponentStructure={setComponentStructure}
+              wordsToAvoid={wordsToAvoid}
+              setWordsToAvoid={setWordsToAvoid}
+              themeInjections={themeInjections}
+              setThemeInjections={setThemeInjections}
+              tests={tests}
+              setTests={setTests}
+              clearAndMapTests={clearAndMapTests}
             />
           )}
           {activeTab === 'related' && (

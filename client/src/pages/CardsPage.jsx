@@ -351,6 +351,93 @@ const CardsPage = () => {
     }
   };
 
+  // Handle theme injections save: delete old ones and insert new ones
+  const handleThemeInjectionsSave = async (cardId, themeInjectionsData) => {
+    try {
+      // 1. DELETE all existing theme injections for this card
+      const { error: deleteError } = await supabase
+        .from('theme_injections')
+        .delete()
+        .eq('card_id', cardId);
+
+      if (deleteError) {
+        console.error('Error deleting old theme injections:', deleteError);
+        return;
+      }
+
+      // 2. INSERT new theme injections if they exist
+      if (themeInjectionsData && themeInjectionsData.trim()) {
+        try {
+          const parsed = JSON.parse(themeInjectionsData);
+          if (parsed.theme_injections && Array.isArray(parsed.theme_injections)) {
+            await insertNewThemeInjections(cardId, parsed.theme_injections);
+          }
+        } catch (error) {
+          console.error('Error parsing theme injections:', error);
+        }
+      }
+      // If no themeInjectionsData, table remains empty for this card
+    } catch (error) {
+      console.error('Error handling theme injections save:', error);
+    }
+  };
+
+  // Insert new theme injections into the database
+  const insertNewThemeInjections = async (cardId, themeInjections) => {
+    try {
+      // Flatten the hierarchical structure for database insertion
+      const flattened = flattenThemeInjections(themeInjections);
+      
+      // Insert each record
+      for (const injection of flattened) {
+        const { error: insertError } = await supabase
+          .from('theme_injections')
+          .insert({
+            card_id: cardId,
+            injection_id: injection.id,
+            text: injection.text,
+            tags: injection.tags || [],
+            parent_id: injection.parent_id || null,
+            level: injection.level,
+            order_index: injection.order_index // ← Include the order_index!
+          });
+
+        if (insertError) {
+          console.error('Error inserting theme injection:', insertError);
+        }
+      }
+    } catch (error) {
+      console.error('Error inserting theme injections:', error);
+    }
+  };
+
+  // Flatten hierarchical theme injections structure for database insertion
+  const flattenThemeInjections = (themeInjections, parentId = null, level = 0, parentOrderIndex = 0) => {
+    const flattened = [];
+    
+    themeInjections.forEach((injection, index) => {
+      const orderIndex = parentOrderIndex * 1000 + index; // Preserve hierarchy order
+      
+      // Add current injection
+      flattened.push({
+        id: injection.id,
+        text: injection.text,
+        tags: injection.tags || [],
+        parent_id: parentId,
+        level: level,
+        order_index: orderIndex // ← This preserves the order!
+      });
+      
+      // Recursively add children
+      if (injection.children && Array.isArray(injection.children)) {
+        const children = flattenThemeInjections(injection.children, injection.id, level + 1, orderIndex);
+        flattened.push(...children);
+      }
+    });
+    
+    return flattened;
+  };
+
   // Handle card save
   const handleCardSave = async (updatedCard) => {
     try {
@@ -514,68 +601,11 @@ const CardsPage = () => {
           }
         }
       }
-
-      // Persist quizit tests only on Save, if any are present
-      const drafts = updatedCard?.pendingPromptTests;
-      if (cardId && drafts && drafts.slots) {
-        // Generate hash from the new quizit fields using shared utility
-        const components = updatedCard.quizit_component_structure || '';
-        const wordsToAvoid = updatedCard.words_to_avoid || '';
-        const cardIdea = updatedCard.card_idea || '';
-        const newPromptHash = generateQuizitHash(components, wordsToAvoid, cardIdea);
-        
-        // First, delete any existing tests for this card (they're now irrelevant)
-        const { error: deleteError } = await supabase
-          .from('card_prompt_tests')
-          .delete()
-          .eq('card_id', cardId);
-        
-        if (deleteError) {
-          console.error('Error deleting old prompt tests:', deleteError);
-          // Continue anyway - we'll try to save new tests
-        }
-        
-        // Now save all 6 slots with their permutation assignments
-        const rows = [0,1,2,3,4,5]
-          .map((slot) => {
-            const s = drafts.slots?.[slot];
-            
-            // Always save all 6 slots, even if empty
-            // For empty slots, use the calculated permutation assignment
-            const calculatedPermutation = getPermutationForTest(slot, updatedCard.quizit_valid_permutations);
-            
-            // Ensure we always have a slot object, even if it's empty
-            const slotData = s || {};
-            
-            const row = {
-              card_id: cardId,
-              slot,
-              prompt_hash: newPromptHash,
-              quizit: slotData.quizit || '',
-              reasoning: slotData.reasoning || '',
-
-              confirmed: !!slotData.confirmed,
-              permutation: slotData.permutation || calculatedPermutation || null
-            };
-            
-            // Debug logging for empty slots
-            if (!slotData.quizit && !slotData.reasoning) {
-              console.log(`Slot ${slot} is empty, saving with permutation: ${row.permutation}`);
-            }
-            
-            return row;
-          });
-
-        // Always insert all 6 rows (even if some are empty)
-        const { error: insertError } = await supabase
-          .from('card_prompt_tests')
-          .insert(rows);
-        if (insertError) {
-          console.error('Error inserting new prompt tests:', insertError);
-        }
-      }
-
-      // Refresh cards and section default link
+      
+      // Handle theme injections: delete old ones and insert new ones
+      await handleThemeInjectionsSave(cardId, updatedCard.theme_injections);
+      
+      // Refresh the cards list to show the updated data
       await refreshCardsAndDefaultLink();
       
       // Return success - don't close modal
@@ -633,6 +663,17 @@ const CardsPage = () => {
           return;
         }
         
+        // Clean up theme injections for deleted cards
+        const { error: themeInjectionsDeleteError } = await supabase
+          .from('theme_injections')
+          .delete()
+          .in('card_id', cardIds);
+        
+        if (themeInjectionsDeleteError) {
+          console.error('Error deleting theme injections:', themeInjectionsDeleteError);
+          // Continue anyway - this is cleanup, not critical
+        }
+        
         // Refresh the cards list and section default link
         await refreshCardsAndDefaultLink();
         alert(`Successfully deleted ${cardIds.length} cards.`);
@@ -668,6 +709,17 @@ const CardsPage = () => {
             console.error('Error deleting existing cards before processing response:', deleteBeforeInsertError);
             // Proceeding is risky because we might end up with mixed old/new cards
             // But we keep going per request; alternatively, we could return here
+          }
+          
+          // Clean up theme injections for deleted cards
+          const { error: themeInjectionsDeleteError } = await supabase
+            .from('theme_injections')
+            .delete()
+            .in('card_id', cardIdsForSection);
+          
+          if (themeInjectionsDeleteError) {
+            console.error('Error deleting theme injections:', themeInjectionsDeleteError);
+            // Continue anyway - this is cleanup, not critical
           }
         }
       }
