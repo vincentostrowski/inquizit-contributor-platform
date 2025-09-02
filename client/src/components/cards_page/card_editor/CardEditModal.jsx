@@ -191,17 +191,17 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   };
 
   // Clear and map tests based on current dependencies
-  const clearAndMapTests = (permutationsToUse = selectedPermutations, themeInjectionsToUse = themeInjections) => {
+  const clearAndMapTests = (permutationsToUse = Array.isArray(selectedPermutations) ? selectedPermutations : [], themeInjectionsToUse = themeInjections) => {
     const clearedTests = initializeTestsStructure();
     
     // Map permutations to tests
-    if (permutationsToUse && permutationsToUse.length > 0) {
+    if (permutationsToUse && Array.isArray(permutationsToUse) && permutationsToUse.length > 0) {
       // Get the valid orderings to determine the display order
       const scenarioComponents = componentStructure?.components?.filter(comp => comp.type === 'scenario') || [];
       const { validOrderings } = generateValidOrderings(scenarioComponents, 10);
       
       // Sort selected permutations by their position in the validOrderings array
-      const sortedPermutations = permutationsToUse.sort((a, b) => {
+      const sortedPermutations = [...permutationsToUse].sort((a, b) => {
         const indexA = validOrderings.indexOf(a);
         const indexB = validOrderings.indexOf(b);
         return indexA - indexB;
@@ -357,7 +357,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       const loadedData = {
         wordsToAvoid: card.words_to_avoid ? card.words_to_avoid.split(',').map(w => w.trim()) : [],
         componentStructure: card.quizit_component_structure || { components: [] },
-        selectedPermutations: card.quizit_valid_permutations || [],
+        selectedPermutations: Array.isArray(card.quizit_valid_permutations) ? card.quizit_valid_permutations : [],
         tests: testsObject,
         themeInjections: themeInjections.length > 0 ? buildNestedThemeInjections(themeInjections) : { theme_injections: [] }
       };
@@ -638,16 +638,11 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   };
 
   const buildBannerPrompt = () => {
-    let prompt = "Generate a 25:9 landscape banner image for this concept card. The banner should contain only images/visual elements - no text whatsoever.";
+    let prompt = "You will be generating a 25:9 landscape banner image for a concept card. The banner should contain only images/visual elements - no text whatsoever.";
     
-    prompt += `\n\nIMPORTANT: Use the reference images provided below as your primary aesthetic guide. Study their visual style and apply these elements to your banner:`;
-    prompt += `\n\n• Color Palette: Match the dominant colors, color temperature, and saturation levels`;
-    prompt += `\n• Visual Style: Replicate the artistic style, texture, and rendering approach`;
-    prompt += `\n• Composition: Use similar line weights, shapes, and spatial relationships`;
-    prompt += `\n• Mood & Atmosphere: Capture the same emotional tone and visual feeling`;
-    prompt += `\n• Technical Elements: Match lighting, shadows, depth, and perspective techniques`;
+    prompt += `\n\nFirst, I need you to suggest 5 possible ideas, in detail, for the content of the banner (focus on what should be depicted, not style/aesthetic). Each idea should be a specific visual concept that represents the card's concept.`;
     
-    prompt += `\n\nYour banner should feel like it belongs in the same visual family as these reference images, while being relevant to the card's content.`;
+    prompt += `\n\nAfter I choose the best content idea, I will send you a reference image that you should use as a guide for the aesthetic and style when actually generating the banner.`;
     
     if (formData.title?.trim()) {
       prompt += `\n\nCard Title: ${formData.title}`;
@@ -661,7 +656,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       prompt += `\n\nCard Concept: ${formData.card_idea}`;
     }
     
-    prompt += `\n\nReference Images (study these for aesthetic guidance):`;
+    prompt += `\n\nPlease provide 5 detailed content ideas for the banner:`;
     
     return prompt;
   };

@@ -35,6 +35,8 @@ const ImageReferenceSelector = () => {
     }
   };
 
+
+
   const copyImageToClipboard = async (storagePath) => {
     try {
       // Get the public URL from Supabase
@@ -61,20 +63,6 @@ const ImageReferenceSelector = () => {
     }
   };
 
-  const copyImageUrl = async (storagePath) => {
-    try {
-      const imageUrl = supabase.storage
-        .from('reference-art')
-        .getPublicUrl(storagePath).data.publicUrl;
-      
-      await navigator.clipboard.writeText(imageUrl);
-      return true;
-    } catch (error) {
-      console.error('Failed to copy URL:', error);
-      return false;
-    }
-  };
-
   const handleImageCopy = async (image) => {
     const success = await copyImageToClipboard(image.storage_path);
     
@@ -84,14 +72,7 @@ const ImageReferenceSelector = () => {
     }
   };
 
-  const handleUrlCopy = async (image) => {
-    const success = await copyImageUrl(image.storage_path);
-    
-    if (success) {
-      setCopiedImageId(image.id);
-      setTimeout(() => setCopiedImageId(null), 2000);
-    }
-  };
+
 
   if (imagesLoading) {
     return (
@@ -156,17 +137,7 @@ const ImageReferenceSelector = () => {
                 )}
               </div>
               
-              {/* URL Copy Button (shown on hover) */}
-              <button
-                className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleUrlCopy(image);
-                }}
-                title="Copy URL"
-              >
-                🔗
-              </button>
+
             </div>
           );
         })}

@@ -228,44 +228,115 @@ const CardTab = ({ formData, handleInputChange, handleGenerate, buildTitlePrompt
             </div>
           )}
           
-          {/* Upload Area */}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files[0];
-                if (file) {
-                  // Store the file for upload
-                  handleInputChange('bannerFile', file);
-                  
-                  // Also create a preview URL
-                  const reader = new FileReader();
-                  reader.onload = (event) => {
-                    handleInputChange('banner', event.target.result);
-                  };
-                  reader.readAsDataURL(file);
+          {/* Split Upload Area */}
+          <div className="grid grid-cols-2 gap-2">
+            {/* Left Half: File Upload */}
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 hover:bg-gray-50 transition-colors">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    // Store the file for upload
+                    handleInputChange('bannerFile', file);
+                    
+                    // Also create a preview URL
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                      handleInputChange('banner', event.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+                className="hidden"
+                id="banner-upload"
+              />
+              <label 
+                htmlFor="banner-upload" 
+                className="cursor-pointer block"
+              >
+                <div className="text-gray-400 mb-2">
+                  <svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                </div>
+                <p className="text-xs text-gray-600 mb-1">Upload from file</p>
+                <p className="text-xs text-gray-500">PNG, JPG, GIF</p>
+              </label>
+            </div>
+
+            {/* Right Half: Paste from Clipboard */}
+            <div 
+              onPaste={async (e) => {
+                e.preventDefault();
+                const items = e.clipboardData.items;
+                
+                for (let i = 0; i < items.length; i++) {
+                  const item = items[i];
+                  if (item.type.indexOf('image') !== -1) {
+                    const file = item.getAsFile();
+                    if (file) {
+                      handleInputChange('bannerFile', file);
+                      
+                      // Create preview URL
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        handleInputChange('banner', event.target.result);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                    break;
+                  }
                 }
               }}
-              className="hidden"
-              id="banner-upload"
-            />
-            <label 
-              htmlFor="banner-upload" 
-              className="cursor-pointer block"
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+                  e.preventDefault();
+                  navigator.clipboard.read().then(data => {
+                    for (let i = 0; i < data.length; i++) {
+                      const item = data[i];
+                      if (item.types.includes('image/png') || item.types.includes('image/jpeg') || item.types.includes('image/gif')) {
+                        item.getType('image/png').then(blob => {
+                          const file = new File([blob], 'pasted-image.png', { type: blob.type });
+                          handleInputChange('bannerFile', file);
+                          
+                          // Create preview URL
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            handleInputChange('banner', event.target.result);
+                          };
+                          reader.readAsDataURL(file);
+                        }).catch(() => {
+                          // Try other image types
+                          item.getType('image/jpeg').then(blob => {
+                            const file = new File([blob], 'pasted-image.jpg', { type: blob.type });
+                            handleInputChange('bannerFile', file);
+                            
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              handleInputChange('banner', event.target.result);
+                            };
+                            reader.readAsDataURL(file);
+                          });
+                        });
+                        break;
+                      }
+                    }
+                  });
+                }
+              }}
+              tabIndex={0}
+              className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <div className="text-gray-400 mb-2">
-                <svg className="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                <svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <p className="text-sm text-gray-600">
-                {formData.banner ? 'Click to change banner image' : 'Click to upload banner image'}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                PNG, JPG, GIF up to 5MB
-              </p>
-            </label>
+              <p className="text-xs text-gray-600 mb-1">Paste from clipboard</p>
+              <p className="text-xs text-gray-500">Ctrl+V or Cmd+V</p>
+            </div>
           </div>
           
           {/* Remove Banner Button */}
