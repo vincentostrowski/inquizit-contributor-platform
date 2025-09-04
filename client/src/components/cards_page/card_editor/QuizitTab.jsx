@@ -1,10 +1,10 @@
-import ThemeInjectionsSection from './quizit_tab/components/ThemeInjectionsSection';
+import SeedBundlesSection from './quizit_tab/components/SeedBundlesSection';
 import QuizitConfigurationHeader from './quizit_tab/components/QuizitConfigurationHeader';
 import WordsToAvoidSection from './quizit_tab/components/WordsToAvoidSection';
 import QuizitComponentsSection from './quizit_tab/components/QuizitComponentsSection';
 import TestSection from './quizit_tab/components/TestSection';
 
-const QuizitTab = ({ formData, fieldCompletion, onFieldCompletionToggle, selectedPermutations, setSelectedPermutations, componentStructure, setComponentStructure, wordsToAvoid, setWordsToAvoid, themeInjections, setThemeInjections, tests, setTests, clearAndMapTests, onResetQuizitData, hasOriginalData }) => {
+const QuizitTab = ({ formData, fieldCompletion, onFieldCompletionToggle, selectedPermutations, setSelectedPermutations, componentStructure, setComponentStructure, wordsToAvoid, setWordsToAvoid, seedBundles, setSeedBundles, tests, setTests, clearAndMapTests, onResetQuizitData, hasOriginalData }) => {
 
   return (
     <div className="flex-1 p-6 overflow-y-auto">
@@ -35,11 +35,11 @@ const QuizitTab = ({ formData, fieldCompletion, onFieldCompletionToggle, selecte
           clearAndMapTests={clearAndMapTests}
         />
 
-        <ThemeInjectionsSection
+        <SeedBundlesSection
           formData={formData}
-          themeInjections={themeInjections}
-          setThemeInjections={setThemeInjections}
-          clearAndMapTests={clearAndMapTests}
+          seedBundles={seedBundles}
+          setSeedBundles={setSeedBundles}
+          componentStructure={componentStructure}
         />
       </div>
 
@@ -48,7 +48,7 @@ const QuizitTab = ({ formData, fieldCompletion, onFieldCompletionToggle, selecte
         formData={formData}
         componentStructure={componentStructure}
         selectedPermutations={selectedPermutations}
-        themeInjections={themeInjections}
+        seedBundles={seedBundles}
         wordsToAvoid={wordsToAvoid}
         tests={tests}
         setTests={setTests}

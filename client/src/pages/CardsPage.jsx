@@ -351,92 +351,6 @@ const CardsPage = () => {
     }
   };
 
-  // Handle theme injections save: delete old ones and insert new ones
-  const handleThemeInjectionsSave = async (cardId, themeInjectionsData) => {
-    try {
-      // 1. DELETE all existing theme injections for this card
-      const { error: deleteError } = await supabase
-        .from('theme_injections')
-        .delete()
-        .eq('card_id', cardId);
-
-      if (deleteError) {
-        console.error('Error deleting old theme injections:', deleteError);
-        return;
-      }
-
-      // 2. INSERT new theme injections if they exist
-      if (themeInjectionsData && themeInjectionsData.trim()) {
-        try {
-          const parsed = JSON.parse(themeInjectionsData);
-          if (parsed.theme_injections && Array.isArray(parsed.theme_injections)) {
-            await insertNewThemeInjections(cardId, parsed.theme_injections);
-          }
-        } catch (error) {
-          console.error('Error parsing theme injections:', error);
-        }
-      }
-      // If no themeInjectionsData, table remains empty for this card
-    } catch (error) {
-      console.error('Error handling theme injections save:', error);
-    }
-  };
-
-  // Insert new theme injections into the database
-  const insertNewThemeInjections = async (cardId, themeInjections) => {
-    try {
-      // Flatten the hierarchical structure for database insertion
-      const flattened = flattenThemeInjections(themeInjections);
-      
-      // Insert each record
-      for (const injection of flattened) {
-        const { error: insertError } = await supabase
-          .from('theme_injections')
-          .insert({
-            card_id: cardId,
-            injection_id: injection.id,
-            text: injection.text,
-            tags: injection.tags || [],
-            parent_id: injection.parent_id || null,
-            level: injection.level,
-            order_index: injection.order_index // ← Include the order_index!
-          });
-
-        if (insertError) {
-          console.error('Error inserting theme injection:', insertError);
-        }
-      }
-    } catch (error) {
-      console.error('Error inserting theme injections:', error);
-    }
-  };
-
-  // Flatten hierarchical theme injections structure for database insertion
-  const flattenThemeInjections = (themeInjections, parentId = null, level = 0, parentOrderIndex = 0) => {
-    const flattened = [];
-    
-    themeInjections.forEach((injection, index) => {
-      const orderIndex = parentOrderIndex * 1000 + index; // Preserve hierarchy order
-      
-      // Add current injection
-      flattened.push({
-        id: injection.id,
-        text: injection.text,
-        tags: injection.tags || [],
-        parent_id: parentId,
-        level: level,
-        order_index: orderIndex // ← This preserves the order!
-      });
-      
-      // Recursively add children
-      if (injection.children && Array.isArray(injection.children)) {
-        const children = flattenThemeInjections(injection.children, injection.id, level + 1, orderIndex);
-        flattened.push(...children);
-      }
-    });
-    
-    return flattened;
-  };
 
   // Handle card save
   const handleCardSave = async (updatedCard) => {
@@ -602,8 +516,7 @@ const CardsPage = () => {
         }
       }
       
-      // Handle theme injections: delete old ones and insert new ones
-      await handleThemeInjectionsSave(cardId, updatedCard.theme_injections);
+      // Theme injections are now handled in CardEditModal.jsx
       
       // Refresh the cards list to show the updated data
       await refreshCardsAndDefaultLink();
@@ -663,16 +576,7 @@ const CardsPage = () => {
           return;
         }
         
-        // Clean up theme injections for deleted cards
-        const { error: themeInjectionsDeleteError } = await supabase
-          .from('theme_injections')
-          .delete()
-          .in('card_id', cardIds);
-        
-        if (themeInjectionsDeleteError) {
-          console.error('Error deleting theme injections:', themeInjectionsDeleteError);
-          // Continue anyway - this is cleanup, not critical
-        }
+        // Theme injections are now handled in CardEditModal.jsx
         
         // Refresh the cards list and section default link
         await refreshCardsAndDefaultLink();
@@ -711,16 +615,7 @@ const CardsPage = () => {
             // But we keep going per request; alternatively, we could return here
           }
           
-          // Clean up theme injections for deleted cards
-          const { error: themeInjectionsDeleteError } = await supabase
-            .from('theme_injections')
-            .delete()
-            .in('card_id', cardIdsForSection);
-          
-          if (themeInjectionsDeleteError) {
-            console.error('Error deleting theme injections:', themeInjectionsDeleteError);
-            // Continue anyway - this is cleanup, not critical
-          }
+          // Theme injections are now handled in CardEditModal.jsx
         }
       }
 

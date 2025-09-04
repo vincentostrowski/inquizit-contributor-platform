@@ -13,7 +13,7 @@ const initializeTestsStructure = () => {
       quizit: '', 
       reasoning: '', 
       permutation: null, 
-      themeInjection: null, 
+      seedBundle: null, 
       confirmed: false
     };
   });
@@ -53,8 +53,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
 
   const [wordsToAvoid, setWordsToAvoid] = useState([]);
 
-  const [themeInjections, setThemeInjections] = useState({
-    theme_injections: []
+  const [seedBundles, setSeedBundles] = useState({
+    seed_bundles: []
   });
 
   const [tests, setTests] = useState(() => initializeTestsStructure());
@@ -62,59 +62,57 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   // Store original loaded data for reset functionality
   const [originalQuizitData, setOriginalQuizitData] = useState(null);
 
-  // Flatten theme injections for database storage
-  const flattenThemeInjections = (injections, parentId = null, level = 0, orderIndex = 0) => {
-    const flattened = [];
-    
-    injections.forEach((injection, index) => {
-      const currentOrderIndex = orderIndex + index;
-      
-      flattened.push({
-        injection_id: injection.id.toString(),
-        text: injection.text,
-        tags: injection.tags,
-        parent_id: parentId,
-        level: level,
-        order_index: currentOrderIndex
-      });
-      
-      if (injection.children && injection.children.length > 0) {
-        const children = flattenThemeInjections(injection.children, injection.id.toString(), level + 1, currentOrderIndex);
-        flattened.push(...children);
-      }
-    });
-    
-    return flattened;
-  };
-
-  // Save theme injections to database
-  const saveThemeInjections = async (cardId, themeInjectionsData) => {
+  // Save seed bundles to database
+  const saveSeedBundles = async (cardId, seedBundlesData) => {
     try {
-      // First, delete existing theme injections for this card
-      await supabase.from('theme_injections').delete().eq('card_id', cardId);
+      // First, delete existing seed bundles for this card
+      await supabase.from('seed_bundles').delete().eq('card_id', cardId);
       
       // Then insert new ones
-      const flattenedInjections = flattenThemeInjections(themeInjectionsData.theme_injections);
-      
-      if (flattenedInjections.length > 0) {
-        const insertPromises = flattenedInjections.map(injection => 
-          supabase.from('theme_injections').insert({
+      if (seedBundlesData.seed_bundles && seedBundlesData.seed_bundles.length > 0) {
+        const insertPromises = seedBundlesData.seed_bundles.map((bundle, index) => 
+          supabase.from('seed_bundles').insert({
             card_id: cardId,
-            injection_id: injection.injection_id,
-            text: injection.text,
-            tags: injection.tags,
-            parent_id: injection.parent_id,
-            level: injection.level,
-            order_index: injection.order_index
+            bundle_index: index,
+            bundle_items: bundle.items,
+            bundle_tags: bundle.tags
           })
         );
         
         await Promise.all(insertPromises);
-        console.log('Theme injections saved successfully');
+        console.log('Seed bundles saved successfully');
       }
     } catch (error) {
-      console.error('Error saving theme injections:', error);
+      console.error('Error saving seed bundles:', error);
       throw error;
+    }
+  };
+
+  // Load seed bundles from database
+  const loadSeedBundles = async (cardId) => {
+    try {
+      const { data, error } = await supabase
+        .from('seed_bundles')
+        .select('*')
+        .eq('card_id', cardId)
+        .order('bundle_index');
+
+      if (error) {
+        console.error('Error loading seed bundles:', error);
+        return { seed_bundles: [] };
+      }
+
+      const seedBundles = data || [];
+      
+      return {
+        seed_bundles: seedBundles.map(bundle => ({
+          items: bundle.bundle_items || [],
+          tags: bundle.bundle_tags || []
+        }))
+      };
+    } catch (error) {
+      console.error('Error loading seed bundles:', error);
+      return { seed_bundles: [] };
     }
   };
 
@@ -128,9 +126,9 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         quizit_valid_permutations: selectedPermutations
       }).eq('id', cardId);
 
-      // 2. Save theme injections
-      if (themeInjections && themeInjections.theme_injections && themeInjections.theme_injections.length > 0) {
-        await saveThemeInjections(cardId, themeInjections);
+      // 2. Save seed bundles
+      if (seedBundles && seedBundles.seed_bundles && seedBundles.seed_bundles.length > 0) {
+        await saveSeedBundles(cardId, seedBundles);
       }
 
       // 3. Save test data (delete + insert approach)
@@ -147,7 +145,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
             quizit: test.quizit || '',
             reasoning: test.reasoning || '',
             permutation: test.permutation || null,
-            theme_injection: test.themeInjection?.text || null,
+            seed_bundle: test.seedBundle ? JSON.stringify(test.seedBundle) : null,
             confirmed: test.confirmed || false
           });
         });
@@ -165,33 +163,9 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     }
   };
 
-  // Build nested theme injections from flat database structure
-  const buildNestedThemeInjections = (flatInjections) => {
-    const rootInjections = flatInjections.filter(inj => inj.level === 0);
-    
-    const buildChildren = (parentId) => {
-      return flatInjections
-        .filter(inj => inj.parent_id === parentId)
-        .map(inj => ({
-          id: inj.injection_id,
-          text: inj.text,
-          tags: inj.tags,
-          children: buildChildren(inj.injection_id)
-        }));
-    };
-    
-    return {
-      theme_injections: rootInjections.map(inj => ({
-        id: parseInt(inj.injection_id),
-        text: inj.text,
-        tags: inj.tags,
-        children: buildChildren(inj.injection_id)
-      }))
-    };
-  };
 
   // Clear and map tests based on current dependencies
-  const clearAndMapTests = (permutationsToUse = Array.isArray(selectedPermutations) ? selectedPermutations : [], themeInjectionsToUse = themeInjections) => {
+  const clearAndMapTests = (permutationsToUse = Array.isArray(selectedPermutations) ? selectedPermutations : [], seedBundlesToUse = seedBundles) => {
     const clearedTests = initializeTestsStructure();
     
     // Map permutations to tests
@@ -228,47 +202,54 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       });
     }
     
-    // Map theme injections to tests
-    if (themeInjectionsToUse && themeInjectionsToUse.theme_injections && themeInjectionsToUse.theme_injections.length > 0) {
-      const rootScenarios = themeInjectionsToUse.theme_injections;
-      let testIndex = 0;
-      let childIndex = 0;
+    // Map seed bundles to tests using tag diversity algorithm
+    if (seedBundlesToUse && seedBundlesToUse.seed_bundles && seedBundlesToUse.seed_bundles.length > 0) {
+      const bundles = seedBundlesToUse.seed_bundles;
+      const usedTags = new Set();
+      const usedBundles = new Set();
       
-      while (testIndex < 6) {
-        let foundChild = false;
+      // Greedy algorithm: for each test slot, find the bundle with the most unique tags
+      for (let testIndex = 0; testIndex < 6; testIndex++) {
+        let bestBundle = null;
+        let bestScore = -1;
         
-        for (let rootIndex = 0; rootIndex < rootScenarios.length; rootIndex++) {
-          const root = rootScenarios[rootIndex];
-          
-          if (root.children && root.children.length > childIndex) {
-            const child = root.children[childIndex];
-            clearedTests[testIndex].themeInjection = child;
-            testIndex++;
-            foundChild = true;
+        // Find bundle with least tag overlap
+        bundles.forEach((bundle, bundleIndex) => {
+          if (!usedBundles.has(bundleIndex) && bundle.tags && Array.isArray(bundle.tags)) {
+            const uniqueTags = bundle.tags.filter(tag => !usedTags.has(tag));
+            const score = uniqueTags.length; // More unique tags = better score
             
-            if (testIndex >= 6) break;
-          }
-        }
-        
-        if (!foundChild) {
-          childIndex++;
-          
-          let hasMoreChildren = false;
-          for (let rootIndex = 0; rootIndex < rootScenarios.length; rootIndex++) {
-            const root = rootScenarios[rootIndex];
-            if (root.children && root.children.length > childIndex) {
-              hasMoreChildren = true;
-              break;
+            if (score > bestScore) {
+              bestScore = score;
+              bestBundle = { bundle, index: bundleIndex };
             }
           }
-          
-          if (!hasMoreChildren) break;
+        });
+        
+        if (bestBundle) {
+          clearedTests[testIndex].seedBundle = bestBundle.bundle;
+          // Mark this bundle as used
+          usedBundles.add(bestBundle.index);
+          // Mark its tags as used
+          bestBundle.bundle.tags.forEach(tag => usedTags.add(tag));
+        } else {
+          // If no unique bundles left, use any remaining bundle
+          const remainingBundles = bundles.filter((_, index) => !usedBundles.has(index));
+          if (remainingBundles.length > 0) {
+            clearedTests[testIndex].seedBundle = remainingBundles[0];
+            usedBundles.add(bundles.indexOf(remainingBundles[0]));
+          } else {
+            // If we've used all bundles but still need more tests, cycle through bundles
+            // This handles cases where we have fewer than 6 bundles or insufficient tag variation
+            const cycleIndex = testIndex % bundles.length;
+            clearedTests[testIndex].seedBundle = bundles[cycleIndex];
+          }
         }
       }
     } else {
-      // Clear all theme injections when none are available
+      // Clear all seed bundles when none are available
       [0, 1, 2, 3, 4, 5].forEach(index => {
-        clearedTests[index].themeInjection = null;
+        clearedTests[index].seedBundle = null;
       });
     }
     
@@ -281,10 +262,10 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     clearAndMapTests(newPermutations); // Pass the new permutations directly
   };
 
-  // Wrapper function that sets theme injections and clears tests
-  const handleThemeInjectionsChange = (newThemeInjections) => {
-    setThemeInjections(newThemeInjections);
-    clearAndMapTests(selectedPermutations, newThemeInjections); // Pass both parameters directly
+  // Wrapper function that sets seed bundles and clears tests
+  const handleSeedBundlesChange = (newSeedBundles) => {
+    setSeedBundles(newSeedBundles);
+    clearAndMapTests(selectedPermutations, newSeedBundles); // Pass both parameters directly
   };
 
   // Wrapper function that sets words to avoid and clears tests
@@ -297,7 +278,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   const handleComponentStructureChange = (newComponentStructure) => {
     setComponentStructure(newComponentStructure);
     setSelectedPermutations([]); // Clear selected permutations when components change
-    clearAndMapTests([], themeInjections); // Clear tests with empty permutations
+    clearAndMapTests([], seedBundles); // Clear tests with empty permutations
   };
 
   // Reset quizit data to original loaded state
@@ -306,7 +287,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       setComponentStructure(originalQuizitData.componentStructure);
       setSelectedPermutations(originalQuizitData.selectedPermutations);
       setWordsToAvoid(originalQuizitData.wordsToAvoid);
-      setThemeInjections(originalQuizitData.themeInjections);
+      setSeedBundles(originalQuizitData.seedBundles);
       setTests(originalQuizitData.tests);
     }
   };
@@ -314,11 +295,11 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
   // Data loading function
   const loadAllQuizitData = async (cardId) => {
     try {
-      // Fetch card data, tests, and theme injections in parallel
-      const [cardData, testsData, themeInjectionsData] = await Promise.all([
+      // Fetch card data, tests, and seed bundles in parallel
+      const [cardData, testsData, seedBundlesData] = await Promise.all([
         supabase.from('cards').select('words_to_avoid, quizit_component_structure, quizit_valid_permutations').eq('id', cardId).single(),
         supabase.from('card_prompt_tests').select('*').eq('card_id', cardId).order('slot'),
-        supabase.from('theme_injections').select('*').eq('card_id', cardId).order('level, order_index')
+        loadSeedBundles(cardId)
       ]);
 
       if (cardData.error) {
@@ -331,15 +312,10 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         return null;
       }
 
-      if (themeInjectionsData.error) {
-        console.error('Error loading theme injections data:', themeInjectionsData.error);
-        return null;
-      }
-
       // Transform the data
       const card = cardData.data;
       const tests = testsData.data || [];
-      const themeInjections = themeInjectionsData.data || [];
+      const seedBundles = seedBundlesData || { seed_bundles: [] };
 
       // Convert tests array to object format
       const testsObject = {};
@@ -349,7 +325,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
           quizit: testData?.quizit || '',
           reasoning: testData?.reasoning || '',
           permutation: testData?.permutation || null,
-          themeInjection: testData?.theme_injection ? { text: testData.theme_injection } : null,
+          seedBundle: testData?.seed_bundle ? JSON.parse(testData.seed_bundle) : null,
           confirmed: testData?.confirmed || false
         };
       });
@@ -359,7 +335,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
         componentStructure: card.quizit_component_structure || { components: [] },
         selectedPermutations: Array.isArray(card.quizit_valid_permutations) ? card.quizit_valid_permutations : [],
         tests: testsObject,
-        themeInjections: themeInjections.length > 0 ? buildNestedThemeInjections(themeInjections) : { theme_injections: [] }
+        seedBundles: seedBundles
       };
       
       return loadedData;
@@ -381,7 +357,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
           setComponentStructure(data.componentStructure);
           setSelectedPermutations(data.selectedPermutations);
           setWordsToAvoid(data.wordsToAvoid);
-          setThemeInjections(data.themeInjections);
+          setSeedBundles(data.seedBundles);
           setTests(data.tests);
         }
       });
@@ -518,7 +494,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
       setSelectedPermutations([]);
       setComponentStructure({ components: [] });
       setWordsToAvoid([]);
-      setThemeInjections({ theme_injections: [] });
+      setSeedBundles({ seed_bundles: [] });
       setTests(initializeTestsStructure());
     }
   }, [isOpen]);
@@ -1042,8 +1018,8 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
               setComponentStructure={handleComponentStructureChange}
               wordsToAvoid={wordsToAvoid}
               setWordsToAvoid={handleWordsToAvoidChange}
-              themeInjections={themeInjections}
-              setThemeInjections={handleThemeInjectionsChange}
+              seedBundles={seedBundles}
+              setSeedBundles={handleSeedBundlesChange}
               tests={tests}
               setTests={setTests}
               clearAndMapTests={clearAndMapTests}

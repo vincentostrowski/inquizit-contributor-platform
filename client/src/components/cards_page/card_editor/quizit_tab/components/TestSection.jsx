@@ -46,7 +46,7 @@ const createEmptyTestResults = () => {
       quizit: '', 
       reasoning: '', 
       permutation: null,
-      themeInjection: null, 
+      seedBundle: null, 
       confirmed: false
     };
   });
@@ -58,7 +58,7 @@ const TestSection = (
     formData,
     componentStructure,
     selectedPermutations,
-    themeInjections,
+    seedBundles,
     wordsToAvoid,
     tests,
     setTests,
@@ -90,7 +90,7 @@ const TestSection = (
     // Check if test can be generated (has required data)
     const canGenerateTest = () => {
         return currentTest.permutation && 
-               currentTest.themeInjection && 
+               currentTest.seedBundle && 
                componentStructure.components && componentStructure.components.length > 0;
     };
 
@@ -112,19 +112,19 @@ const TestSection = (
                 .filter(text => text !== '')
                 .join(', ');
             const wordsToAvoidString = wordsToAvoid ? wordsToAvoid.join(', ') : '';
-            const themeInjectionText = currentTest.themeInjection.text || '';
+            const seedBundleText = currentTest.seedBundle ? currentTest.seedBundle.items.join(', ') : '';
 
             console.log('Generating scenario with:', {
                 scenarioComponents,
                 wordsToAvoidString,
-                themeInjectionText
+                seedBundleText
             });
 
             const { data: scenarioData, error: scenarioError } = await supabase.functions.invoke('quizit-scenario', {
                 body: {
                     scenarioComponents,
                     wordsToAvoid: wordsToAvoidString,
-                    themeInjection: themeInjectionText
+                    seedBundle: seedBundleText
                 }
             });
 
@@ -248,16 +248,21 @@ const TestSection = (
   {/* removed right-side Tested badge */}
 
   <div className="space-y-4">
-    {/* Theme Injection Display */}
+    {/* Seed Bundle Display */}
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-            <h4 className="font-medium mb-2">Theme Injection</h4>
-          {currentTest.themeInjection ? (
+            <h4 className="font-medium mb-2">Seed Bundle</h4>
+          {currentTest.seedBundle ? (
             <div className="text-sm text-gray-700 bg-white border border-gray-200 rounded p-3">
-              {currentTest.themeInjection.text}
+              <div className="mb-2">
+                <strong>Items:</strong> {currentTest.seedBundle.items.join(', ')}
+              </div>
+              <div>
+                <strong>Tags:</strong> {currentTest.seedBundle.tags.join(', ')}
+              </div>
             </div>
           ) : (
             <div className="text-sm text-gray-500 italic bg-white border border-gray-200 rounded p-3">
-              No theme injection assigned
+              No seed bundle assigned
             </div>
           )}
           </div>
@@ -336,7 +341,7 @@ const TestSection = (
               }`}
               title={
                 !canGenerateTest() 
-                  ? 'Missing required data (permutation, theme injection, or components)' 
+                  ? 'Missing required data (permutation, seed bundle, or components)' 
                   : 'Generate test content'
               }
             >
