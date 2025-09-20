@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '../../../../../services/supabaseClient';
 
 const SeedBundlesSection = ({
   formData,
@@ -126,81 +127,35 @@ const SeedBundlesSection = ({
   };
 
   // Handle copying seed bundles prompt to clipboard
-  const handleCopySeedBundlesPrompt = () => {
-    // Extract scenario components
-    const scenarioComponents = componentStructure?.components
-      ?.filter(component => component.type === 'scenario')
-      ?.map((component, index) => `${index + 1}) ${component.text}`)
-      ?.join('\n') || 'No scenario components available';
+  const handleCopySeedBundlesPrompt = async () => {
+    try {
+      // Extract scenario components
+      const scenarioComponents = componentStructure?.components
+        ?.filter(component => component.type === 'scenario')
+        ?.map(component => component.text) || [];
 
-    const instructions = `You are given a concept card and ordered scenario components. Create seed bundles—arrays of short words/phrases—to nudge varied scenario generations. These are NOT scenes.
+      // Call the centralized prompt service
+      const { data, error } = await supabase.functions.invoke('get-bulk-seed-prompt', {
+        body: {
+          cardTitle: formData?.title || 'N/A',
+          cardDescription: formData?.description || 'N/A',
+          cardIdea: formData?.card_idea || 'N/A',
+          scenarioComponents,
+          count: 50
+        }
+      });
 
-Use ONLY the card and components below as context. Do not rewrite them.
+      if (error) {
+        console.error('Failed to get prompt:', error);
+        return;
+      }
 
---- CONCEPT CARD ---
-Title: ${formData?.title || 'N/A'}
-Description: ${formData?.description || 'N/A'}
-Card Idea: ${formData?.card_idea || 'N/A'}
-
---- SCENARIO COMPONENTS (verbatim) ---
-${scenarioComponents}
----------------------------------------
-
-OUTPUT
-Return JSON ONLY:
-{
-  "seed_bundles": [
-    {
-      "items": ["seed 1", "seed 2", "seed 3"],
-      "tags": ["tag1", "tag2", "tag3"]
+      navigator.clipboard.writeText(data.prompt);
+      setSeedBundlesPromptCopied(true);
+      setTimeout(() => setSeedBundlesPromptCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to get prompt:', error);
     }
-  ]
-}
-
-VOLUME
-- Produce 40–60 seed bundles total.
-- Each bundle has 3–5 items; each item is 1–3 words, lowercase.
-- Each bundle has 2–4 tags; each tag is 1–2 words, lowercase.
-
-INTERNAL METHOD (do silently; do NOT output these steps)
-1) Derive a small working lexicon from the card + components:
-   - collect candidate noun phrases (1–3 words) that fit: signals/evidence (e.g., trend, feedback, observation), info artifacts (e.g., report, notes, chart), pressures/tones (e.g., backlash, risk, deadline, social cost), communication/mediums (e.g., memo, post, comment, email).
-   - expand with common paraphrases only (CEFR-B2). avoid jargon and academic terms.
-   - exclude any words/phrases that appear in the components text.
-
-2) Form micro-themes (your choice per the card/components), such as: metrics, user feedback, firsthand test, expert review, early indicators, internal comms, public comms, policy/guideline context, reversible trial, time pressure. You may invent others that suit the card.
-
-3) Build bundles:
-   - each bundle revolves around ONE micro-theme.
-   - each bundle must include at least:
-       • one signal/evidence or info-artifact item, and
-       • one pressure/tone or communication/medium item.
-   - all items in a bundle must be mutually compatible and sound natural together.
-
-4) Prototype sentence test (internal): compose a 12–18 word sentence that uses all items in the bundle; if awkward or contradictory, revise the bundle.
-
-5) Generate tags for each bundle:
-   - derive 2–4 descriptive tags from the micro-theme and items
-   - use lowercase, 1–2 words per tag
-   - examples: "metrics", "user feedback", "internal", "public comms", "time pressure"
-
-CONSTRAINTS
-- Items are noun phrases or simple nouns only (no verbs/gerunds unless lexicalized like "planning").
-- Setting-agnostic; no names, brands, locations, numbers, or URLs.
-- CEFR-B2 plain language; avoid jargon (e.g., "priors," "posterior," "credence," "cohorting," "map-territory," "unit economics," "framework").
-- Do NOT include any word/phrase already present in the scenario components.
-- Within a bundle: all items must be distinct.
-- Across bundles: any pair of bundles shares at most one identical item; most bundles should differ by ≥2 items.
-- Banned substrings (case-insensitive): ["meeting room","classroom","panel","stage","nodding","vendor","city","country","http","$","%"]
-
-SELF-CHECK (internal; fix once if needed)
-- Every bundle passes the prototype sentence test.
-- No bundle contains contradictory items (e.g., "public post" with "internal only").
-- Output JSON only.`;
-    
-    navigator.clipboard.writeText(instructions);
-    setSeedBundlesPromptCopied(true);
-    setTimeout(() => setSeedBundlesPromptCopied(false), 2000);
   };
 
   return (

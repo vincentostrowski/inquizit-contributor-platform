@@ -110,7 +110,7 @@ const OrganizeRightPanel = ({
     // Add cards back to their original source sections
     sectionCards.forEach(card => {
       // Use the card's source_section directly - no complex lookup needed!
-      const targetSourceSection = sourceSections.find(s => s.id === card.source_section);
+      let targetSourceSection = sourceSections.find(s => s.id === card.source_section);
       
       // If we can't find the source section, use the first available one as fallback
       if (!targetSourceSection) {

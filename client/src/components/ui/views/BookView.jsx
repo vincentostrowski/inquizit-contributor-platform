@@ -45,15 +45,7 @@ const BookView = ({ bookData, headerColor, backgroundEndColor, buttonTextBorderC
   };
 
   // Don't render content until we have data
-  if (!sectionsToUse || sectionsToUse.length === 0) {
-    return (
-      <div className="VIEW bg-orange-50 flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-gray-700 text-2xl font-medium">Inquizit</div>
-        </div>
-      </div>
-    );
-  }
+  
 
   return (
     <div className="VIEW bg-white flex-1 flex flex-col overflow-hidden">

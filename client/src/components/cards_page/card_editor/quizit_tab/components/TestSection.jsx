@@ -112,19 +112,19 @@ const TestSection = (
                 .filter(text => text !== '')
                 .join(', ');
             const wordsToAvoidString = wordsToAvoid ? wordsToAvoid.join(', ') : '';
-            const seedBundleText = currentTest.seedBundle ? currentTest.seedBundle.items.join(', ') : '';
+            const seedBundleArray = currentTest.seedBundle ? currentTest.seedBundle.items : [];
 
             console.log('Generating scenario with:', {
                 scenarioComponents,
                 wordsToAvoidString,
-                seedBundleText
+                seedBundleArray
             });
 
             const { data: scenarioData, error: scenarioError } = await supabase.functions.invoke('quizit-scenario', {
                 body: {
                     scenarioComponents,
                     wordsToAvoid: wordsToAvoidString,
-                    seedBundle: seedBundleText
+                    seedBundle: seedBundleArray
                 }
             });
 

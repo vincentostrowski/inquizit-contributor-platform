@@ -4,6 +4,10 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { 
+  REASONING_SYSTEM_PROMPT, 
+  buildReasoningUserPrompt 
+} from '../_shared/prompts/quizit/index.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -55,25 +59,11 @@ serve(async (req) => {
     const safeReasoningComponents = reasoningComponents || '';
     const safeCardIdea = cardIdea || '';
 
-    // Create the prompt for reasoning generation
-    const system = `You write reasoning for a given scenario.
-Priorities: 1) Behavioral constraints, 2) Concision.
-REASONING MUST BE EXPLANATORY-ONLY:
-- Describe events, causes, and implications in the scenario.
-- Do not talk about the text, its structure, the prompt, fields, lists, or your process.
-- Do not mention sentences, components, order, bullets, arrays, JSON, schema, or placeholders.
-- Two paragraphs separated by exactly one blank line.
-- Paragraph 1: explain how the situation unfolds so each required element is present, using temporal/causal cues (e.g., "at first… then… as a result…"), without meta talk.
-- Paragraph 2: explain how the situation expresses the underlying idea and discuss the provided considerations in practical, non-meta terms.`
-
-    const user = `scenario: ${generatedQuizit}
-idea_hint: ${safeCardIdea}        // do not name explicitly in text
-considerations: ${safeReasoningComponents}
-
-Return the reasoning text directly.`
+    // Create the prompt for reasoning generation using centralized prompts
+    const userPrompt = buildReasoningUserPrompt(scenarioComponents, safeReasoningComponents, safeCardIdea, generatedQuizit);
 
     // Log the final prompt for debugging
-    console.log('Sending to ChatGPT:', user)
+    console.log('Sending to ChatGPT:', userPrompt)
 
     // Call OpenAI API
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -85,8 +75,8 @@ Return the reasoning text directly.`
       body: JSON.stringify({
         model: 'gpt-4',
         messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user }
+          { role: 'system', content: REASONING_SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt }
         ],
         temperature: 0.7,
         max_tokens: 600

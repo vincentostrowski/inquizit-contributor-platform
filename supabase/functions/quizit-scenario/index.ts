@@ -4,6 +4,10 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { 
+  SCENARIO_SYSTEM_PROMPT, 
+  buildScenarioUserPrompt 
+} from '../_shared/prompts/quizit/index.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,35 +29,11 @@ serve(async (req) => {
       )
     }
 
-    // Create the prompt for scenario generation
-    const system = `You write one short scenario ("quizit") to test a concept.
-Priorities: 1) Follow constraints, 2) Be concise.
-Rules:
-- Second person ("you…").
-- Preserve given item ORDER, the order of the items should be how they appear in the scenario; combine only consecutive items.
-- ≤1 sentence per item (fewer allowed via combining). 
-- No filler, no labels.
-- Treat banned phrases as case-insensitive; avoid inflections/near-variants.`
-
-    const user = `You write one short scenario ("quizit") to test a concept.
-Priorities: 1) Follow constraints, 2) Be concise.
-Rules:
-- Second person ("you…").
-- Preserve given item ORDER, the order of the items should be how they appear in the scenario; combine only consecutive items.
-- ≤1 sentence per item (fewer allowed via combining). 
-- No filler, no labels.
-- Treat banned phrases as case-insensitive; avoid inflections/near-variants.
-
-items_in_order: ${scenarioComponents}
-banned_phrases: ${wordsToAvoid}
-${seedBundle ? `seed_bundle: ${seedBundle}
-
-The scenario should incorporate these seed words naturally and implement concrete details beyond them. Use the seed bundle as inspiration for the scenario context and build the scenario around these themes.` : ''}
-
-Return the scenario text directly.`
+    // Create the prompt for scenario generation using centralized prompts
+    const userPrompt = buildScenarioUserPrompt(scenarioComponents, wordsToAvoid, seedBundle || []);
 
     // Log the final prompt for debugging
-    console.log('Sending to ChatGPT:', user)
+    console.log('Sending to ChatGPT:', userPrompt)
 
     // Call OpenAI API
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -65,8 +45,8 @@ Return the scenario text directly.`
       body: JSON.stringify({
         model: 'gpt-4',
         messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user }
+          { role: 'system', content: SCENARIO_SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt }
         ],
         temperature: 0.7,
         max_tokens: 500

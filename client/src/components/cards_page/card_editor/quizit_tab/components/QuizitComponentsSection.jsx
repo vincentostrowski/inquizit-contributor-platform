@@ -6,7 +6,7 @@ import AddButton from './scenario_components_section/AddButton';
 import Dependencies from './scenario_components_section/Dependencies';
 import Permutations from './scenario_components_section/Permutations';
 
-const generateQuizitPrompt = (formData) => {
+const generateComponentsPrompt = (formData) => {
   const cardJson = {
     card: {
       title: formData?.title || '',
@@ -16,58 +16,137 @@ const generateQuizitPrompt = (formData) => {
     content: formData?.content || ''
   };
   
-  const instructions = `You are given a concept card and its explanation. Generate a structured quizit configuration with scenario components that would elicit this concept from a reader.
+  const instructions = `You are given a concept card.
 
-Components should be phrased as concrete situations involving people, not abstract concepts. For example, instead of "Presence of a bold pursuit", use "Person A has a bold pursuit in area X".
+Task
+Generate:
+A) Atomic SCENARIO components (numbered)
+B) Atomic REASONING components (numbered)
 
-Focus on general situations, not specific details like exact names, locations, or specific examples.
+These MUST be GENERAL to all situations where the concept applies (setting-agnostic).
 
-For example, if testing for 'sunk cost fallacy', the components would be:
-- Person A has already invested time, money, effort, or resources in a project
-- Person A cannot recover that investment regardless of future actions  
-- Person A faces a current decision point whether to continue or stop
-- Person A sees evidence that continuing is unlikely to be worthwhile
-- Person A feels compelled to continue "to not waste" what's already invested
+Output format (exactly this, no extra text):
+Scenario components:
+1) <12–20 words, one idea, people-centered, setting-agnostic>
+2) ...
+Reasoning components:
+1) <8–16 words, one idea, setting-agnostic>
+2) ...
 
-Return this structured configuration in the following JSON format:
+Rules (both lists)
+- One sentence per line, ONE idea only (avoid joining with "and/but").
+- Concrete human actions/states (perception, judgment, decision, expression). No names, brands, locations, job titles, URLs, exact numbers.
+- No meta terms ("scenario", "component", "concept", etc.).
+- Use natural wording (shared vocabulary will be enforced later).
+- Setting-agnostic: valid if alone, with one other person, or among others; avoid scene details.
 
-{
-"components": [
-{
-"id": "A",
-"text": "[component text]",
-"type": "scenario",
-"isPrerequisite": true/false,
-"prerequisites": ["array of component IDs this depends on, if any]"
-}
-]
-}
+Definitions
+- SCENARIO = observable human situations you could depict on screen.
+- REASONING = considerations a reader weighs to interpret/justify the scene (not necessarily shown).
 
-Rules:
-- Prerequisites must come before non-prerequisites
-- Components can depend on other components
-- Use letters A, B, C, D... for component IDs
-- Sort components so prerequisites appear first in the list
-- Set type: "scenario" for components that should appear in the quizit scenario
-- Set type: "reasoning" for components that are additional concepts for reasoning (not in the scenario)
-- Default all components to type: "scenario" unless they should only appear in reasoning
+Example (Sunk Cost Fallacy — general, setting-agnostic)
 
-Example:
-- type: "scenario" components are the core elements that will appear in the quizit scenario (e.g., "Person A is pursuing a bold project", "Person A continues working a stable job")
-- type: "reasoning" components are additional concepts the reader should think about (e.g., "Person A should consider risk tolerance", "Person A should evaluate opportunity costs")`;
+Scenario components:
+1) Person A has already invested time, money, effort, or resources in a project.
+2) Person A faces a clear decision point to continue the effort or to stop now.
+3) Person A observes evidence suggesting continued effort is unlikely to be worthwhile.
+4) Person A feels compelled to continue to avoid "wasting" what was already invested.
+
+Reasoning components:
+1) The reader recognizes past investment is irrecoverable and irrelevant to the current choice.
+2) The reader evaluates expected future payoff rather than justifying prior effort.`;
   
   return `${instructions}\n\n---\n\nCard JSON:\n${JSON.stringify(cardJson, null, 2)}`;
 };
 
+const generateNormalizePrompt = () => {
+  const instructions = `Use the lists in the immediately preceding message as input. Do NOT ask me to paste them again.
+
+TASK
+Normalize and finalize a vector-friendly configuration:
+1) Select the best 6–8 SCENARIO components from the prior list (if fewer exist, keep all).
+2) (Optional) Select 2–5 REASONING components if they clearly aid interpretation; skip if none were listed.
+3) Order SCENARIO so prerequisites appear first (setup → signal/evidence → decision/action → outcome/response).
+4) Set dependencies: for each item, fill "prerequisites" with earlier IDs it depends on.
+5) Normalize all selected items to the rules below.
+6) Emit FINAL JSON only (no commentary).
+
+INPUT FORMAT (from the prior message)
+- Parse numbered lines under "Scenario components:" as SCENARIO drafts.
+- Parse numbered lines under "Reasoning components:" as REASONING drafts (if present).
+- If only one list exists, treat it as SCENARIO.
+
+NORMALIZATION — SCENARIO (strict)
+- Sentence form: Subject + canonical_verb + object/context [+ optional short phrase].
+- Allowed subjects ONLY: "Person A", "Person B", "a group of people", "others".
+- Exactly ONE verb per sentence from this controlled lexicon (map synonyms to these):
+  observes, questions, challenges, decides, hesitates, accepts, rejects, defers, revises, invests, commits, signals
+- 12–20 words. Simple present. No hedging (really, very, somewhat, maybe, kind of).
+- Setting-agnostic: avoid scene anchors (rooms, meetings, audiences, body language).
+- Remove names, brands, locations, job titles, exact numbers, and URLs.
+
+NORMALIZATION — REASONING (lighter)
+- Subject: "Person A" or "the reader".
+- ONE verb from this lexicon (map synonyms to these):
+  evaluates, considers, compares, weighs, infers, anticipates, updates, generalizes, distinguishes, identifies
+- 8–16 words. Simple present. Avoid prescriptions like "should"; use "considers/weighs/evaluates".
+- Keep setting-agnostic; no names/brands/locations/URLs/exact numbers.
+
+SELECTION HEURISTICS
+- SCENARIO should collectively cover: setup/context, signal/evidence, decision point, action/response, immediate outcome.
+- Remove near-duplicates; keep the clearest phrasing.
+- REASONING should cover at least two distinct buckets: diagnostic cues, decision criteria, counterfactuals, principles, metacognition.
+
+JSON SCHEMA (emit JSON ONLY, no commentary)
+{
+  "components": [
+    {
+      "id": "A",
+      "text": "…",                    // normalized sentence
+      "type": "scenario" | "reasoning",
+      "isPrerequisite": true/false,   // usually false for reasoning
+      "prerequisites": []             // IDs of earlier items this depends on
+    }
+  ]
+}
+
+ID & DEPENDENCY RULES
+- Use letters A, B, C… sequentially across the whole list (scenario items first, then reasoning).
+- "prerequisites" must reference earlier IDs only.
+- Include "prerequisites" for every item (empty array if none).
+- Scenario items must NOT depend on reasoning items.
+
+SELF-CHECK (do internally; if any check fails, silently repair once and re-emit JSON)
+- IDs sequential and unique (A..Z).
+- SCENARIO: allowed subject, exactly one scenario verb, 12–20 words.
+- REASONING: allowed subject, one reasoning verb, 8–16 words.
+- Prerequisite references valid and earlier.
+- No forbidden specifics or scene anchors remain.`;
+  
+  return instructions;
+};
+
 // Copy prompt to clipboard and show feedback
-const copyPromptToClipboard = async (formData, setPromptCopied) => {
+
+const copyComponentsPromptToClipboard = async (formData, setComponentsPromptCopied) => {
   try {
-    const payload = generateQuizitPrompt(formData);
+    const payload = generateComponentsPrompt(formData);
     await navigator.clipboard.writeText(payload);
-    setPromptCopied(true);
-    setTimeout(() => setPromptCopied(false), 2000);
+    setComponentsPromptCopied(true);
+    setTimeout(() => setComponentsPromptCopied(false), 2000);
   } catch (error) {
-    console.error('Failed to copy prompt:', error);
+    console.error('Failed to copy components prompt:', error);
+  }
+};
+
+const copyNormalizePromptToClipboard = async (setNormalizePromptCopied) => {
+  try {
+    const payload = generateNormalizePrompt();
+    await navigator.clipboard.writeText(payload);
+    setNormalizePromptCopied(true);
+    setTimeout(() => setNormalizePromptCopied(false), 2000);
+  } catch (error) {
+    console.error('Failed to copy normalize prompt:', error);
   }
 };
 
@@ -85,7 +164,8 @@ const QuizitComponentsSection = ({
   onPermutationsChange  
 }) => {
   // Local state for copy feedback
-  const [promptCopied, setPromptCopied] = useState(false);
+  const [componentsPromptCopied, setComponentsPromptCopied] = useState(false);
+  const [normalizePromptCopied, setNormalizePromptCopied] = useState(false);
 
   const reasoningComponents = componentStructure?.components?.filter(component => component.type === 'reasoning');
   const scenarioComponents = componentStructure?.components?.filter(component => component.type === 'scenario');
@@ -106,22 +186,43 @@ const QuizitComponentsSection = ({
             Reset
           </button>
         ) : (
-          <button
-            onClick={() => copyPromptToClipboard(formData, setPromptCopied)}
-            className="bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-xs flex items-center space-x-1 transition-colors"
-            title="Copy prompt to clipboard"
-          >
-            {promptCopied ? (
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            ) : (
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-            )}
-            <span>Prompt</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            {/* Components Prompt Button */}
+            <button
+              onClick={() => copyComponentsPromptToClipboard(formData, setComponentsPromptCopied)}
+              className="bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-xs flex items-center space-x-1 transition-colors"
+              title="Copy components prompt to clipboard"
+            >
+              {componentsPromptCopied ? (
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              )}
+              <span>Components</span>
+            </button>
+
+            {/* Normalize Prompt Button */}
+            <button
+              onClick={() => copyNormalizePromptToClipboard(setNormalizePromptCopied)}
+              className="bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-xs flex items-center space-x-1 transition-colors"
+              title="Copy normalize prompt to clipboard"
+            >
+              {normalizePromptCopied ? (
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              )}
+              <span>Normalize</span>
+            </button>
+          </div>
         )}
       </div>
       {componentStructure && componentStructure.components && componentStructure.components.length > 0 ? (
