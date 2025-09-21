@@ -21,7 +21,7 @@ serve(async (req) => {
   }
 
   try {
-    const { scenarioComponents, wordsToAvoid, seedBundle } = await req.json()
+    const { scenarioComponents, wordsToAvoid, seedBundle, theme } = await req.json()
     if (!scenarioComponents || typeof scenarioComponents !== 'string') {
       return new Response(
         JSON.stringify({ error: 'Missing scenarioComponents' }),
@@ -30,7 +30,7 @@ serve(async (req) => {
     }
 
     // Create the prompt for scenario generation using centralized prompts
-    const userPrompt = buildScenarioUserPrompt(scenarioComponents, wordsToAvoid, seedBundle || []);
+    const userPrompt = buildScenarioUserPrompt(scenarioComponents, wordsToAvoid, seedBundle || [], theme);
 
     // Log the final prompt for debugging
     console.log('Sending to ChatGPT:', userPrompt)
