@@ -1,6 +1,6 @@
 // Edge function for generating quizit scenarios only
-// Input: { scenarioComponents: string, wordsToAvoid: string }
-// Output: string (plain text scenario)
+// Input: { coreComponents: string[], hintComponents: string[], wordsToAvoid: string, seedBundle: string[], theme?: string }
+// Output: JSON { core: string[], hint: string[] }
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -21,16 +21,27 @@ serve(async (req) => {
   }
 
   try {
-    const { scenarioComponents, wordsToAvoid, seedBundle, theme } = await req.json()
-    if (!scenarioComponents || typeof scenarioComponents !== 'string') {
+    const { coreComponents, hintComponents, wordsToAvoid, seedBundle, theme } = await req.json()
+    
+    // Validate coreComponents (required)
+    if (!coreComponents || !Array.isArray(coreComponents)) {
       return new Response(
-        JSON.stringify({ error: 'Missing scenarioComponents' }),
+        JSON.stringify({ error: 'Missing or invalid coreComponents array' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate hintComponents (optional, but if provided must be array)
+    if (hintComponents && !Array.isArray(hintComponents)) {
+      return new Response(
+        JSON.stringify({ error: 'hintComponents must be an array if provided' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     // Create the prompt for scenario generation using centralized prompts
-    const userPrompt = buildScenarioUserPrompt(scenarioComponents, wordsToAvoid, seedBundle || [], theme);
+    // TODO: Update buildScenarioUserPrompt to handle separate core/hint arrays
+    const userPrompt = buildScenarioUserPrompt(coreComponents, hintComponents, wordsToAvoid, seedBundle || [], theme);
 
     // Log the final prompt for debugging
     console.log('Sending to ChatGPT:', userPrompt)
@@ -72,16 +83,36 @@ serve(async (req) => {
       )
     }
 
-    // Return the generated content directly as plain text
-    if (generatedContent && typeof generatedContent === 'string') {
+    // Parse the JSON response from AI
+    try {
+      const parsedResponse = JSON.parse(generatedContent)
+      
+      // Validate the response structure
+      if (!parsedResponse.core || !Array.isArray(parsedResponse.core)) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid response format: missing or invalid core array' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // hint array is optional, but if present must be array
+      if (parsedResponse.hint && !Array.isArray(parsedResponse.hint)) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid response format: hint must be an array if present' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Return the structured JSON response
       return new Response(
-        generatedContent,
-        { headers: { ...corsHeaders, 'Content-Type': 'text/plain' } }
+        JSON.stringify(parsedResponse),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
-    } else {
+    } catch (parseError) {
+      console.error('Failed to parse AI response as JSON:', parseError)
       return new Response(
-        'No content generated',
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'text/plain' } }
+        JSON.stringify({ error: 'Failed to parse AI response as JSON' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 

@@ -37,8 +37,8 @@ export function buildReasoningUserPrompt(
   generatedScenario: string
 ): string {
   return `scenario: ${generatedScenario}
-idea_hint: ${cardIdea}        // do not name explicitly in text
-considerations: ${reasoningComponents}
+card_idea: ${cardIdea}        // do not name explicitly in text
+considerations (reasoning components): ${reasoningComponents}
 
 Return the reasoning text directly.`;
 }

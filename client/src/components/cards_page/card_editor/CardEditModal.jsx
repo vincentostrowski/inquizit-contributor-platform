@@ -171,7 +171,7 @@ const CardEditModal = ({ card, isOpen, onClose, onSave, onDelete, selectedSectio
     // Map permutations to tests
     if (permutationsToUse && Array.isArray(permutationsToUse) && permutationsToUse.length > 0) {
       // Get the valid orderings to determine the display order
-      const scenarioComponents = componentStructure?.components?.filter(comp => comp.type === 'scenario') || [];
+      const scenarioComponents = componentStructure?.components?.filter(comp => comp.type === 'scenario' && comp.revelationGroup === 0) || [];
       const { validOrderings } = generateValidOrderings(scenarioComponents, 10);
       
       // Sort selected permutations by their position in the validOrderings array

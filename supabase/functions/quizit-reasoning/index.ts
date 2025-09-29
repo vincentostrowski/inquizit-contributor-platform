@@ -1,5 +1,5 @@
 // Edge function for generating quizit reasoning only
-// Input: { scenarioComponents: string, reasoningComponents: string, cardIdea: string, generatedQuizit: string }
+// Input: { scenarioComponents: string, reasoningComponents: string, cardIdea: string, generatedQuizit: { core: string[], hint: string[] } }
 // Output: string (plain text reasoning)
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -48,9 +48,25 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-    if (!generatedQuizit || typeof generatedQuizit !== 'string') {
+    if (!generatedQuizit || typeof generatedQuizit !== 'object') {
       return new Response(
-        JSON.stringify({ error: 'Missing generatedQuizit' }),
+        JSON.stringify({ error: 'Missing or invalid generatedQuizit object' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate the structure of generatedQuizit
+    if (!generatedQuizit.core || !Array.isArray(generatedQuizit.core)) {
+      return new Response(
+        JSON.stringify({ error: 'generatedQuizit must have a core array' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // hint array is optional, but if present must be array
+    if (generatedQuizit.hint && !Array.isArray(generatedQuizit.hint)) {
+      return new Response(
+        JSON.stringify({ error: 'generatedQuizit hint must be an array if present' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -58,9 +74,13 @@ serve(async (req) => {
     // Validate other parameters (make them optional but provide defaults)
     const safeReasoningComponents = reasoningComponents || '';
     const safeCardIdea = cardIdea || '';
+    
+    // Convert JSON object to string: core sentences followed by hint sentences
+    const allScenarios = [...generatedQuizit.core, ...(generatedQuizit.hint || [])];
+    const generatedQuizitString = allScenarios.join(' ');
 
     // Create the prompt for reasoning generation using centralized prompts
-    const userPrompt = buildReasoningUserPrompt(scenarioComponents, safeReasoningComponents, safeCardIdea, generatedQuizit);
+    const userPrompt = buildReasoningUserPrompt(scenarioComponents, safeReasoningComponents, safeCardIdea, generatedQuizitString);
 
     // Log the final prompt for debugging
     console.log('Sending to ChatGPT:', userPrompt)

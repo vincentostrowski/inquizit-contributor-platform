@@ -41,6 +41,11 @@ const PastInterface = ({ onComponentStructureChange }) => {
       if (!Array.isArray(component.prerequisites)) {
         return `Invalid JSON: Component ${i + 1} must have a "prerequisites" array`;
       }
+      
+      // Add revelationGroup validation
+      if (component.revelationGroup === undefined || component.revelationGroup === null) {
+        return `Invalid JSON: Component ${i + 1} must have "revelationGroup" field`;
+      }
     }
 
     return null; // No errors
@@ -55,15 +60,24 @@ const PastInterface = ({ onComponentStructureChange }) => {
       // Parse JSON
       const parsedData = JSON.parse(pastedText);
       
-      // Validate structure
-      const validationError = validateComponentStructure(parsedData);
+      // Add revelationGroup to components that don't have it (backward compatibility)
+      const processedData = {
+        ...parsedData,
+        components: parsedData.components.map(component => ({
+          ...component,
+          revelationGroup: component.revelationGroup || 0
+        }))
+      };
+
+      // Validate structure after processing
+      const validationError = validateComponentStructure(processedData);
       if (validationError) {
         setError(validationError);
         return;
       }
 
       // Apply the component structure
-      onComponentStructureChange(parsedData);
+      onComponentStructureChange(processedData);
       setSuccess(true);
       
       // Clear success message after 3 seconds

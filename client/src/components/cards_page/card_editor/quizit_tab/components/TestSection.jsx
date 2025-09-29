@@ -2,6 +2,17 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../../../services/supabaseClient';
 import { generateValidOrderings } from '../../../../../utils/dependencyUtils';
 
+// Helper functions for handling quizit data structure
+const getCoreScenarios = (quizit) => {
+  if (typeof quizit === 'string') return []; // Old format
+  return quizit?.core || [];
+};
+
+const getHintScenarios = (quizit) => {
+  if (typeof quizit === 'string') return []; // Old format  
+  return quizit?.hint || [];
+};
+
 // Color mapping for permutations
 const getPermutationColor = (permutation, allPermutations) => {
   const colors = [
@@ -102,27 +113,45 @@ const TestSection = (
             // Step 1: Generate scenario
             setIsGeneratingScenario(true);
             
-            // Extract scenario component texts from the permutation string
+            // Extract scenario component texts from the permutation string, separated by core/hint
             const permutationIds = currentTest.permutation.split(' ');
-            const scenarioComponents = permutationIds
+            
+            const coreComponents = permutationIds
                 .map(id => {
-                    const component = componentStructure.components.find(comp => comp.id === id && comp.type === 'scenario');
+                    const component = componentStructure.components.find(comp => 
+                        comp.id === id && 
+                        comp.type === 'scenario' && 
+                        (comp.revelationGroup === 0 || comp.revelationGroup === undefined)
+                    );
                     return component ? component.text : '';
                 })
-                .filter(text => text !== '')
-                .join(', ');
+                .filter(text => text !== '');
+
+            // Hint components are always included regardless of permutation
+            const hintComponents = componentStructure.components
+                .filter(comp => 
+                    comp.type === 'scenario' && 
+                    comp.revelationGroup === 1
+                )
+                .map(comp => comp.text);
+
+            // For reasoning generation, combine all scenario components (core + hint)
+            const allScenarioComponents = [...coreComponents, ...hintComponents];
+                
             const wordsToAvoidString = wordsToAvoid ? wordsToAvoid.join(', ') : '';
             const seedBundleArray = currentTest.seedBundle ? currentTest.seedBundle.items : [];
 
             console.log('Generating scenario with:', {
-                scenarioComponents,
+                coreComponents,
+                hintComponents,
                 wordsToAvoidString,
                 seedBundleArray
             });
 
             const { data: scenarioData, error: scenarioError } = await supabase.functions.invoke('quizit-scenario', {
                 body: {
-                    scenarioComponents,
+                    coreComponents,
+                    hintComponents,
                     wordsToAvoid: wordsToAvoidString,
                     seedBundle: seedBundleArray
                 }
@@ -146,6 +175,7 @@ const TestSection = (
             // Extract reasoning component texts from the permutation string
             const reasoningComponents = componentStructure.components.filter(component => component.type === 'reasoning').map(component => component.text).join(', ');
             const cardIdea = formData.card_idea || '';
+            const scenarioComponents = allScenarioComponents.join(', ');
 
             console.log('Generating reasoning with:', {
                 scenarioComponents,
@@ -270,28 +300,37 @@ const TestSection = (
     {/* Quizit Field */}
     <div className="bg-gray-50 rounded-lg p-4">
       <h4 className="font-medium mb-2">Generated Quizit</h4>
-          {isGeneratingScenario ? (
-            <div className="bg-white border border-gray-200 rounded p-3 text-sm min-h-[80px] text-blue-500 flex items-center justify-center">
-              <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                <span>Generating scenario...</span>
-              </div>
+      
+      {/* Core Scenarios Section */}
+      <div className="mb-4">
+        {isGeneratingScenario ? (
+          <div className="bg-white border border-gray-200 rounded p-3 text-sm min-h-[60px] text-blue-500 flex items-center justify-center">
+            <div className="flex items-center space-x-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+              <span>Generating core scenarios...</span>
             </div>
-          ) : currentTest.quizit ? (
-        <textarea
-              ref={quizitTextareaRef}
-              value={currentTest.quizit}
-              onChange={(e) => {
-                const updatedTests = { ...tests };
-                updatedTests[selectedTestIndex].quizit = e.target.value;
-                setTests(updatedTests);
-              }}
-          className="w-full p-3 border border-gray-200 rounded text-sm overflow-hidden resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Generated quizit content..."
-        />
-      ) : (
-        <div className="bg-white border border-gray-200 rounded p-3 text-sm min-h-[80px] text-gray-500">Click "Test" to generate quizit content...</div>
-      )}
+          </div>
+        ) : getCoreScenarios(currentTest.quizit).length > 0 ? (
+          <div className="bg-white border border-gray-200 rounded p-3 text-sm">
+            {getCoreScenarios(currentTest.quizit).join(' ')}
+          </div>
+        ) : (
+          <div className="bg-white border border-gray-200 rounded p-3 text-sm min-h-[60px] text-gray-500">No core scenarios generated yet...</div>
+        )}
+      </div>
+
+      {/* Hint Scenarios Section */}
+      <div>
+        {getHintScenarios(currentTest.quizit).length > 0 && (
+          <div className="bg-white border border-gray-200 rounded p-3 text-sm">
+            {getHintScenarios(currentTest.quizit).map((hint, index) => (
+              <div key={index} className="mb-2 last:mb-0">
+                {hint}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
 
     {/* Reasoning Field */}

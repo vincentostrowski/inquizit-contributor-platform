@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import PastInterface from './scenario_components_section/PastInterface';
-import ScenarioComponents from './scenario_components_section/ScenarioComponents';
-import ReasoningComponents from './scenario_components_section/ReasoningComponents';
-import AddButton from './scenario_components_section/AddButton';
+import QuizitComponentList from './scenario_components_section/QuizitComponentList';
 import Dependencies from './scenario_components_section/Dependencies';
 import Permutations from './scenario_components_section/Permutations';
 
@@ -20,10 +18,12 @@ const generateComponentsPrompt = (formData) => {
 
 Task
 Generate:
-A) Atomic SCENARIO components (numbered)
-B) Atomic REASONING components (numbered)
+A) Atomic Scenario components = situations/states/events.
+B) Atomic Reasoning components = ways to interpret, reason, or justify the scenario.
 
-These MUST be GENERAL to all situations where the concept applies (setting-agnostic).
+These MUST be GENERAL to all situations where the concept applies (setting-agnostic). This means that the scenario and reasoning components should be able to be applied to any situation where the concept applies.
+Prioritize the most essential elements that define the concept
+
 
 Output format (exactly this, no extra text):
 Scenario components:
@@ -35,26 +35,59 @@ Reasoning components:
 
 Rules (both lists)
 - One sentence per line, ONE idea only (avoid joining with "and/but").
-- Concrete human actions/states (perception, judgment, decision, expression). No names, brands, locations, job titles, URLs, exact numbers.
-- No meta terms ("scenario", "component", "concept", etc.).
+- Concrete actions/states/events (perception, judgment, decision, expression). No names, brands, locations, job titles, URLs, exact numbers UNLESS they are essential to the concept.
+- No meta terms ("scenario", "component", "concept", etc, UNLESS they are essential to the concept.
 - Use natural wording (shared vocabulary will be enforced later).
-- Setting-agnostic: valid if alone, with one other person, or among others; avoid scene details.
 
-Definitions
-- SCENARIO = observable human situations you could depict on screen.
-- REASONING = considerations a reader weighs to interpret/justify the scene (not necessarily shown).
-
-Example (Sunk Cost Fallacy — general, setting-agnostic)
+Example 1 (Sunk Cost Fallacy — general, setting-agnostic)
 
 Scenario components:
 1) Person A has already invested time, money, effort, or resources in a project.
 2) Person A faces a clear decision point to continue the effort or to stop now.
-3) Person A observes evidence suggesting continued effort is unlikely to be worthwhile.
-4) Person A feels compelled to continue to avoid "wasting" what was already invested.
 
 Reasoning components:
 1) The reader recognizes past investment is irrecoverable and irrelevant to the current choice.
-2) The reader evaluates expected future payoff rather than justifying prior effort.`;
+2) The reader evaluates expected future payoff rather than justifying prior effort.
+3) The reader sees that emotional attachment to prior effort can distort rational decision-making.
+4) The reader considers that stopping now prevents further loss despite discomfort of quitting.
+
+Example 2 (Theory Of Forms Reveals True Reality — general, setting-agnostic)
+
+Scenario components:
+1) Person A perceives objects or events that appear varied, unstable, or inconsistent across situations.
+2) Person A reflects on recurring qualities that remain constant despite differences in appearance.
+3) Person A recognizes that sensory impressions provide only partial or distorted access to truth.
+
+Reasoning components:
+1) The reader sees that seeking understanding requires moving beyond what can be directly perceived.
+2) The reader distinguishes fleeting appearances from lasting, underlying realities.
+3) The reader interprets recurring qualities as signs of unchanging principles that endure beyond change.
+
+Example 3 (Power Struggles Breed Conflict — general, setting-agnostic)
+
+Scenario components:
+1) Entiry A gains strength, influence, or resources at pace.
+2) Entity B, an established power, notices the rapid rise and pays attention to it.
+3) Entity B begins to interpret the rise as a direct threat to its position.
+
+Reasoning components:
+1) The reader interprets fear of losing dominance as a trigger for confrontation.
+2) The reader distinguishes between preserving security and defending supremacy against challengers.
+3) The reader sees how misjudging intentions can escalate tensions into destructive outcomes.
+4) The reader recognizes recurring historical cycles where power shifts spark instability and war.
+
+Example 4 (Tragedy of the Commons — general, setting-agnostic)
+
+Scenario components:
+1) Multiple entities access and use the same limited resource for their own advantage.
+2) Each entity increases its usage without regard for the overall sustainability of the resource.
+3) The shared resource becomes visibly strained, depleted, or degraded as usage continues.
+
+Reasoning components:
+1) The reader sees how self-interest at the entity level conflicts with collective preservation.
+2) The reader interprets pursuit of short-term benefit as undermining long-term stability for all.
+3) The reader recognizes that unregulated access drives overuse and eventual collapse of the resource.
+4) The reader considers how cooperation or agreed rules are required to sustain shared resources.`;
   
   return `${instructions}\n\n---\n\nCard JSON:\n${JSON.stringify(cardJson, null, 2)}`;
 };
@@ -64,12 +97,10 @@ const generateNormalizePrompt = () => {
 
 TASK
 Normalize and finalize a vector-friendly configuration:
-1) Select the best 6–8 SCENARIO components from the prior list (if fewer exist, keep all).
-2) (Optional) Select 2–5 REASONING components if they clearly aid interpretation; skip if none were listed.
-3) Order SCENARIO so prerequisites appear first (setup → signal/evidence → decision/action → outcome/response).
-4) Set dependencies: for each item, fill "prerequisites" with earlier IDs it depends on.
-5) Normalize all selected items to the rules below.
-6) Emit FINAL JSON only (no commentary).
+1) Order SCENARIO so prerequisites appear first (setup → signal/evidence → decision/action → outcome/response).
+2) Set dependencies: for each item, fill "prerequisites" with earlier IDs it depends on.
+3) Normalize all selected items to the rules below.
+4) Emit FINAL JSON only (no commentary).
 
 INPUT FORMAT (from the prior message)
 - Parse numbered lines under "Scenario components:" as SCENARIO drafts.
@@ -167,8 +198,136 @@ const QuizitComponentsSection = ({
   const [componentsPromptCopied, setComponentsPromptCopied] = useState(false);
   const [normalizePromptCopied, setNormalizePromptCopied] = useState(false);
 
-  const reasoningComponents = componentStructure?.components?.filter(component => component.type === 'reasoning');
-  const scenarioComponents = componentStructure?.components?.filter(component => component.type === 'scenario');
+  // Filter components by type and revelationGroup
+  const coreScenarioComponents = componentStructure?.components?.filter(component => 
+    component.type === 'scenario' && (component.revelationGroup === 0 || component.revelationGroup === undefined)
+  ) || [];
+  const hintScenarioComponents = componentStructure?.components?.filter(component => 
+    component.type === 'scenario' && component.revelationGroup === 1
+  ) || [];
+  const reasoningComponents = componentStructure?.components?.filter(component => 
+    component.type === 'reasoning'
+  ) || [];
+
+  // Helper function to renumber all components sequentially
+  const renumberComponents = (components) => {
+    return components.map((comp, index) => ({
+      ...comp,
+      id: String.fromCharCode(65 + index),
+      prerequisites: comp.prerequisites ? comp.prerequisites.map(prereqId => {
+        // Find the new ID for this prerequisite
+        const prereqIndex = components.findIndex(c => c.id === prereqId);
+        return prereqIndex >= 0 ? String.fromCharCode(65 + prereqIndex) : prereqId;
+      }).filter(Boolean) : []
+    }));
+  };
+
+  // Helper function to get insertion position for a section
+  const getInsertionPosition = (targetSection) => {
+    const components = componentStructure?.components || [];
+    const coreCount = components.filter(comp => comp.type === 'scenario' && (comp.revelationGroup === 0 || comp.revelationGroup === undefined)).length;
+    const hintsCount = components.filter(comp => comp.type === 'scenario' && comp.revelationGroup === 1).length;
+    switch(targetSection) {
+      case 'core':
+        return coreCount;
+      case 'hints':
+        return coreCount + hintsCount;
+      case 'reasoning':
+        return components.length;
+      default:
+        return components.length;
+    }
+  };
+
+  // Add component functions
+  const handleAddCoreComponent = () => {
+    const components = componentStructure?.components || [];
+    const insertionIndex = getInsertionPosition('core');
+    
+    const newComponent = {
+      id: 'TEMP', // Temporary ID, will be renumbered
+      text: "",
+      type: "scenario",
+      prerequisites: [],
+      isPrerequisite: false,
+      revelationGroup: 0
+    };
+    
+    // Insert at the correct position
+    const updatedComponents = [
+      ...components.slice(0, insertionIndex),
+      newComponent,
+      ...components.slice(insertionIndex)
+    ];
+    
+    // Renumber all components
+    const renumberedComponents = renumberComponents(updatedComponents);
+    
+    onComponentStructureChange(prev => ({
+      ...prev,
+      components: renumberedComponents
+    }));
+  };
+
+  const handleAddHintComponent = () => {
+    const components = componentStructure?.components || [];
+    const insertionIndex = getInsertionPosition('hints');
+    console.log('Inserting hint component at index:', insertionIndex);
+    
+    // Get all core component IDs as prerequisites
+    const coreComponentIds = components
+      .filter(comp => comp.type === 'scenario' && (comp.revelationGroup === 0 || comp.revelationGroup === undefined))
+      .map(comp => comp.id);
+    
+    const newComponent = {
+      id: 'TEMP',
+      text: "",
+      type: "scenario",
+      prerequisites: coreComponentIds,
+      isPrerequisite: false,
+      revelationGroup: 1
+    };
+    
+    const updatedComponents = [
+      ...components.slice(0, insertionIndex),
+      newComponent,
+      ...components.slice(insertionIndex)
+    ];
+    
+    const renumberedComponents = renumberComponents(updatedComponents);
+    
+    onComponentStructureChange(prev => ({
+      ...prev,
+      components: renumberedComponents
+    }));
+  };
+
+  const handleAddReasoningComponent = () => {
+    const components = componentStructure?.components || [];
+    const insertionIndex = getInsertionPosition('reasoning');
+
+    const newComponent = {
+      id: 'TEMP',
+      text: "",
+      type: "reasoning",
+      prerequisites: [],
+      isPrerequisite: false,
+      revelationGroup: 0
+    };
+    
+    const updatedComponents = [
+      ...components.slice(0, insertionIndex),
+      newComponent,
+      ...components.slice(insertionIndex)
+    ];
+    
+    const renumberedComponents = renumberComponents(updatedComponents);
+    
+    onComponentStructureChange(prev => ({
+      ...prev,
+      components: renumberedComponents
+    }));
+  };
   
   return (
     <div className="bg-white rounded-lg p-4 mb-4">
@@ -228,9 +387,27 @@ const QuizitComponentsSection = ({
       {componentStructure && componentStructure.components && componentStructure.components.length > 0 ? (
         <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded">
           <div className="space-y-4 mb-4">
-            <ScenarioComponents components={scenarioComponents} onComponentStructureChange={onComponentStructureChange} />
-            <ReasoningComponents components={reasoningComponents} onComponentStructureChange={onComponentStructureChange} />
-            <AddButton onComponentStructureChange={onComponentStructureChange} />
+            <QuizitComponentList
+              components={coreScenarioComponents}
+              title="Scenario Components: Core"
+              onComponentStructureChange={onComponentStructureChange}
+              onAddComponent={handleAddCoreComponent}
+              renumberComponents={renumberComponents}
+            />
+            <QuizitComponentList
+              components={hintScenarioComponents}
+              title="Scenario Components: Hints"
+              onComponentStructureChange={onComponentStructureChange}
+              onAddComponent={handleAddHintComponent}
+              renumberComponents={renumberComponents}
+            />
+            <QuizitComponentList
+              components={reasoningComponents}
+              title="Reasoning Components"
+              onComponentStructureChange={onComponentStructureChange}
+              onAddComponent={handleAddReasoningComponent}
+              renumberComponents={renumberComponents}
+            />
             <Dependencies components={componentStructure.components || []} onComponentStructureChange={onComponentStructureChange} />
             <Permutations components={componentStructure.components || []} selectedPermutations={selectedPermutations} onPermutationsChange={onPermutationsChange} />
           </div>
